@@ -1,11 +1,15 @@
-.App {
-  font-family: sans-serif;
-  text-align: center;
-}
+/* ... (既存の .App のスタイル) ... */
 
+/* ナビゲーションバー（手帖の表紙風） */
 nav {
-  background-color: #f0f0f0;
-  padding: 1rem;
+  /* 重厚なこげ茶色 */
+  background-color: #4a3a2a; 
+  padding: 0.8rem 1rem;
+  border-bottom: 2px solid #c9b8a0; /* 紙の色と合わせた枠線 */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  text-align: center; /* メニューを中央揃え */
+  z-index: 10; /* 他要素より手前に */
+  position: relative; /* z-indexを効かせるため */
 }
 nav ul {
   display: flex;
@@ -15,14 +19,79 @@ nav ul {
   margin: 0;
 }
 nav li {
-  margin: 0 1rem;
+  margin: 0 1.5rem; /* 間隔を広げる */
 }
 nav a {
+  font-weight: 500;
+  font-size: 1.1em;
+  color: #f5eada; /* 文字色を明るく */
   text-decoration: none;
-  font-weight: bold;
-  color: #333;
+  transition: color 0.2s;
+}
+nav a:hover {
+  color: #fff;
+  text-decoration: none;
 }
 
+/* コンテンツ（紙）の領域 */
 .content {
-  padding: 2rem;
+  background-color: #f5eada; 
+  max-width: 900px;
+  margin: 2.5rem auto; /* 上下の余白を調整 */
+  padding: 2rem 3rem; /* パディングを調整 */
+  
+  /* 影をよりリアルに */
+  border: 1px solid #c9b8a0;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35); 
+  border-radius: 3px;
+}
+
+/* ホーム画面のリストボックス（古いカード風） */
+.list-item-box {
+  border: 1px solid #d8c8b0;
+  background: #faf6f0; /* 少しだけ色をつけた背景 */
+  padding: 15px 25px;
+  margin-bottom: 20px;
+  border-radius: 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.list-item-box:hover {
+  border-color: #8c7853;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+.list-item-box h3 {
+  margin-top: 5px;
+  margin-bottom: 10px;
+}
+
+/* （HomeScreen.jsx などでこのクラス名を使う） */
+.pilgrimage-list p {
+  color: #7a6a5a;
+  margin-top: 5px;
+  font-size: 0.9em;
+}
+/* ... (既存の .content, .list-item-box などのスタイル) ... */
+
+/* 検索バーのコンテナ（余白調整） */
+.search-bar-container {
+  margin-bottom: 2.5rem; /* リストとの間にしっかり余白 */
+}
+
+/* 検索入力欄 */
+.search-input {
+  /* index.css のスタイルが基本適用される */
+  /* 幅だけ 100% にして、デザインを微調整 */
+  width: 100%;
+  padding: 12px 15px; /* パディングを少し大きめに */
+  font-size: 1.1em;
+  box-sizing: border-box; /* paddingを含めて width: 100% にする */
+}
+
+/* 検索結果が0件の時のテキスト */
+.no-results-text {
+  color: #7a6a5a;
+  text-align: center;
+  font-size: 1.1em;
+  padding: 2rem 0;
 }

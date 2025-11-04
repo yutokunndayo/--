@@ -1,35 +1,38 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+
+// ↓↓↓ すべて .jsx に変更します ↓↓↓
+import TitleScreen from './TitleScreen.jsx';
+import HomeScreen from './HomeScreen.jsx';
+import PostScreen from './PostScreen.jsx';
+import ViewScreen from './ViewScreen.jsx';
+
+import './App.css'; 
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <BrowserRouter>
+      <div className="App">
+        <nav>
+          <ul>
+            <li><Link to="/">タイトル</Link></li>
+            <li><Link to="/home">ホーム</Link></li>
+            <li><Link to="/post">聖地マップ作成</Link></li>
+          </ul>
+        </nav>
+
+        <div className="content">
+          <Routes>
+            <Route path="/" element={<TitleScreen />} />
+            <Route path="/home" element={<HomeScreen />} />
+            <Route path="/post" element={<PostScreen />} />
+            {/* :id は「マップのID」を渡すように変更 */}
+            <Route path="/view/:pilgrimageId" element={<ViewScreen />} />
+          </Routes>
+        </div>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
