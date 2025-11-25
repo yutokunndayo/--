@@ -43,7 +43,7 @@ function PostScreen() {
     }
 
     try {
-      // headersに 'Content-Type': 'application/json' をつけてはいけない（自動設定させる）
+      // headersに 'Content-Type': 'application/json' をつけてはいけません（自動設定されます）
       const response = await fetch('http://localhost:3000/api/pilgrimages', {
         method: 'POST', 
         body: formData, 

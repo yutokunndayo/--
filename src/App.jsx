@@ -5,7 +5,7 @@ import HomeScreen from './HomeScreen.jsx';
 import PostScreen from './PostScreen.jsx';
 import ViewScreen from './ViewScreen.jsx';
 import LoginScreen from './LoginScreen.jsx';
-import NavBar from './NavBar.jsx'; // ← 1. 新しく作ったNavBarをインポート
+import NavBar from './NavBar.jsx'; // NavBarを使っている場合
 
 import './App.css'; 
 
@@ -23,7 +23,7 @@ function App() {
     <BrowserRouter>
       <div className="App">
         
-        {/* 2. ここにあった <nav>...</nav> を削除し、これ1行に置き換える */}
+        {/* メニューバー（ログイン時のみ表示） */}
         <NavBar />
 
         <div className="content">
