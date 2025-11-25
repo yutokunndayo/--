@@ -1,11 +1,11 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 
-// TitleScreen は削除しました
 import HomeScreen from './HomeScreen.jsx';
 import PostScreen from './PostScreen.jsx';
 import ViewScreen from './ViewScreen.jsx';
 import LoginScreen from './LoginScreen.jsx';
+import NavBar from './NavBar.jsx'; // ← 1. 新しく作ったNavBarをインポート
 
 import './App.css'; 
 
@@ -22,17 +22,13 @@ function App() {
   return (
     <BrowserRouter>
       <div className="App">
-        <nav>
-          <ul>
-            {/* タイトルリンク先をホームに変更 */}
-            <li><Link to="/">ホーム (追憶の地図)</Link></li>
-            <li><Link to="/post">＋ 聖地マップ作成</Link></li>
-          </ul>
-        </nav>
+        
+        {/* 2. ここにあった <nav>...</nav> を削除し、これ1行に置き換える */}
+        <NavBar />
 
         <div className="content">
           <Routes>
-            {/* ルートパス(/) をホーム画面にする（ただしログイン必須） */}
+            {/* ルートパス(/) をホーム画面にする（ログイン必須） */}
             <Route 
               path="/" 
               element={
