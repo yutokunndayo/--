@@ -1,29 +1,34 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
+import HomeScreen from './HomeScreen.jsx';
+import PostScreen from './PostScreen.jsx';
+import ViewScreen from './ViewScreen.jsx';
+import LoginScreen from './LoginScreen.jsx';
+import NavBar from './NavBar.jsx'; // NavBarを作っていなければ削除して <nav> を戻してください
+import './App.css'; 
 
-function TitleScreen() {
-  const navigate = useNavigate();
+const ProtectedRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  if (!token) return <Navigate to="/login" replace />;
+  return children;
+};
 
-  // ↓↓↓ 関数名を変更 (goToHome → goToLogin)
-  const goToLogin = () => {
-    // 遷移先を /home から /login に変更
-    navigate('/login');
-  };
-
+function App() {
   return (
-    <div style={{ textAlign: 'center' }}>
-      <h1>追憶の地図</h1>
-      <h2>- Memoir Map -</h2>
-      <p style={{ fontSize: '1.1em', marginTop: '1.5rem', marginBottom: '2rem' }}>
-        物語のあの場所を、あなたの足跡で記録しよう。
-      </p>
-      
-      {/* ↓↓↓ 呼び出す関数を変更 */}
-      <button onClick={goToLogin}>
-        手帖を開く (ログイン / 新規登録)
-      </button>
-    </div>
+    <BrowserRouter>
+      <div className="App">
+        <NavBar /> {/* または <nav>...</nav> */}
+        <div className="content">
+          <Routes>
+            <Route path="/" element={<ProtectedRoute><HomeScreen /></ProtectedRoute>} />
+            <Route path="/login" element={<LoginScreen />} />
+            <Route path="/home" element={<ProtectedRoute><HomeScreen /></ProtectedRoute>} />
+            <Route path="/post" element={<ProtectedRoute><PostScreen /></ProtectedRoute>} />
+            <Route path="/view/:pilgrimageId" element={<ProtectedRoute><ViewScreen /></ProtectedRoute>} />
+          </Routes>
+        </div>
+      </div> 
+    </BrowserRouter>
   );
 }
-
-export default TitleScreen;
+export default App;
