@@ -7,6 +7,14 @@ const multer = require('multer'); // 画像用ライブラリ
 const path = require('path');
 
 const app = express();
+
+const fs = require('fs'); // ファイル操作用ライブラリ
+
+// uploadsフォルダがなければ作成する
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads');
+}
+
 app.use(express.json());
 app.use(cors());
 
