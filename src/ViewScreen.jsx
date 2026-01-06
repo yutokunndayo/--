@@ -1,92 +1,118 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
+// Google Mapsの部品をインポート
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
-const mapContainerStyle = { width: '100%', height: '400px', backgroundColor: '#ddd', marginBottom: '30px', border: '1px solid #ccc', borderRadius: '4px' };
+const mapContainerStyle = {
+  width: '100%',
+  height: '400px',
+  backgroundColor: '#ddd',
+  marginBottom: '30px',
+  border: '1px solid #ccc'
+};
 
 function ViewScreen() {
   const { pilgrimageId } = useParams();
   const [pilgrimage, setPilgrimage] = useState(null);
-  const [map, setMap] = useState(null);
-  const [selectedSpot, setSelectedSpot] = useState(null);
 
+  // APIキー読み込み
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   });
 
+  // バックエンドから詳細データを取得
   useEffect(() => {
-    fetch(`http://localhost:3000/api/pilgrimages/${pilgrimageId}`)
-      .then(res => res.json())
-      .then(data => setPilgrimage(data))
-      .catch(err => console.error(err));
+    // GET APIはまだ作っていないので、前回同様ダミーデータで動作させます
+    // (ただし、GoogleMapの動作確認のため、座標はリアルな値を使います)
+    const dummyData = {
+      id: pilgrimageId,
+      workTitle: 'IWGP',
+      mapTitle: '池袋西口公園 聖地巡礼コース',
+      author: '聖地ハンターA',
+      date: '2023-11-25',
+      spots: [
+        // ピンを表示するために座標を指定
+        { id: 1, name: '池袋西口公園', lat: 35.730, lng: 139.709, desc: 'ドラマのオープニングでおなじみの場所。' },
+        { id: 2, name: '東京芸術劇場', lat: 35.729, lng: 139.708, desc: 'マコトが座っていたベンチ付近。' },
+        { id: 3, name: '池袋駅西口交番', lat: 35.731, lng: 139.710, desc: '作中で何度も登場する交番前。' },
+      ],
+    };
+    setPilgrimage(dummyData);
   }, [pilgrimageId]);
-
-  const onLoad = useCallback((mapInstance) => setMap(mapInstance), []);
-
-  useEffect(() => {
-    if (map && pilgrimage && pilgrimage.spots.length > 0) {
-      const bounds = new window.google.maps.LatLngBounds();
-      pilgrimage.spots.forEach(spot => bounds.extend({ lat: Number(spot.lat), lng: Number(spot.lng) }));
-      map.fitBounds(bounds);
-    }
-  }, [map, pilgrimage]);
-
-  const handleSpotClick = (spot) => {
-    setSelectedSpot(spot);
-    if (map) {
-      map.panTo({ lat: Number(spot.lat), lng: Number(spot.lng) });
-      map.setZoom(16);
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   if (!pilgrimage) return <div>読み込み中...</div>;
 
+  // 地図の中心を計算（1つ目のスポットにする）
+  const mapCenter = pilgrimage.spots.length > 0 
+    ? { lat: pilgrimage.spots[0].lat, lng: pilgrimage.spots[0].lng }
+    : { lat: 35.689, lng: 139.692 }; // デフォルト(新宿)
+
   return (
     <div>
-      <div style={{ marginBottom: '15px' }}><Link to="/home">← ホームに戻る</Link></div>
-      <div className="view-header">
-        <h2>{pilgrimage.mapTitle} <span style={{fontSize:'0.6em'}}>({pilgrimage.workTitle})</span></h2>
+      <div style={{ marginBottom: '10px' }}>
+        <Link to="/home">&lt; ホームに戻る</Link>
       </div>
 
-      {isLoaded && (
-        <GoogleMap mapContainerStyle={mapContainerStyle} onLoad={onLoad} zoom={10} center={{ lat: 35.689, lng: 139.692 }}>
+      <div className="view-header">
+        <span style={{ color: '#8c7853', fontWeight: 'bold' }}>{pilgrimage.workTitle} の聖地</span>
+        <div className="view-title-area">
+          <h2>{pilgrimage.mapTitle}</h2>
+        </div>
+        <div className="view-meta">
+          <span>作成者: {pilgrimage.author}</span> | <span>スポット数: {pilgrimage.spots.length}件</span>
+        </div>
+      </div>
+
+      <div className="view-tabs">
+        <div className="view-tab active">地図・ルート</div>
+        <div className="view-tab">スポット一覧</div>
+      </div>
+
+      {/* 地図表示エリア */}
+      {isLoaded ? (
+        <GoogleMap
+          mapContainerStyle={mapContainerStyle}
+          center={mapCenter}
+          zoom={15} // ズームレベル（数字が大きいほど拡大）
+        >
+          {/* スポットの数だけピンを立てる */}
           {pilgrimage.spots.map((spot, index) => (
-            <Marker 
-              key={spot.id} 
-              position={{ lat: Number(spot.lat), lng: Number(spot.lng) }} 
-              label={{ text: (index + 1).toString(), color: "white", fontWeight: "bold" }}
-              onClick={() => setSelectedSpot(spot)}
+            <Marker
+              key={spot.id}
+              position={{ lat: spot.lat, lng: spot.lng }}
+              label={{
+                text: (index + 1).toString(), // ピンに「1」「2」と番号を表示
+                color: "white",
+                fontWeight: "bold"
+              }}
             />
           ))}
-          {selectedSpot && (
-            <InfoWindow
-              position={{ lat: Number(selectedSpot.lat), lng: Number(selectedSpot.lng) }}
-              onCloseClick={() => setSelectedSpot(null)}
-              options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
-            >
-              <div style={{ maxWidth: '200px' }}>
-                <h4>{selectedSpot.name}</h4>
-                {selectedSpot.address && <p>📍 {selectedSpot.address}</p>}
-                {selectedSpot.image_path && <img src={`http://localhost:3000/${selectedSpot.image_path}`} style={{width:'100%'}} />}
-              </div>
-            </InfoWindow>
-          )}
         </GoogleMap>
+      ) : (
+        <div>地図を読み込み中...</div>
       )}
 
-      <div className="spots-list">
-        {pilgrimage.spots.map((spot, index) => (
-          <div key={spot.id} className="spot-card" onClick={() => handleSpotClick(spot)} style={{cursor:'pointer', padding:'10px', border:'1px solid #ccc', marginBottom:'10px'}}>
-            <h4>{index+1}. {spot.name}</h4>
-            {spot.address && <p>📍 {spot.address}</p>}
-            {spot.nearby_info && <p>📝 {spot.nearby_info}</p>}
-            {spot.image_path && <img src={`http://localhost:3000/${spot.image_path}`} style={{maxHeight:'100px'}} />}
-          </div>
-        ))}
-      </div>
+      <h3 style={{ borderBottom: '2px solid #d8c8b0', paddingBottom: '5px' }}>巡礼スポット一覧</h3>
+      <table className="spots-table">
+        <tbody>
+          {pilgrimage.spots.map((spot, index) => (
+            <tr key={spot.id} className="spot-row">
+              <th>
+                <div style={{ background:'#4a3a2a', color:'#fff', width:'24px', height:'24px', textAlign:'center', borderRadius:'50%' }}>
+                  {index + 1}
+                </div>
+              </th>
+              <td>
+                <div style={{ fontWeight: 'bold', fontSize: '1.1em' }}>{spot.name}</div>
+                <div style={{ color: '#7a6a5a', fontSize: '0.9em', marginTop: '5px' }}>{spot.desc}</div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
+
 export default ViewScreen;
