@@ -27,13 +27,12 @@ const storage = multer.diskStorage({
     cb(null, 'uploads/'); 
   },
   filename: (req, file, cb) => {
-    // 文字化け対策
     file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
-// ★重要: 複数ファイルを受け取る設定に変更
+// 複数ファイル対応
 const upload = multer({ storage: storage });
 
 // === 2. データベースの準備 ===
@@ -63,7 +62,7 @@ db.serialize(() => {
     FOREIGN KEY (work_id) REFERENCES works (id)
   )`);
   
-  // ★変更: address, nearby_info, image_path を追加
+  // address, nearby_info, image_path を追加
   db.run(`CREATE TABLE IF NOT EXISTS spots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     pilgrimage_id INTEGER NOT NULL,
@@ -82,7 +81,6 @@ db.serialize(() => {
 // === 4. 認証API ===
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).send('情報不足');
   try {
     const hash = await bcrypt.hash(password, 10);
     db.run('INSERT INTO users (username, password_hash) VALUES (?, ?)', [username, hash], function(err) {
@@ -143,19 +141,15 @@ app.get('/api/pilgrimages/:id', (req, res) => {
   });
 });
 
-// ★新規作成: upload.any() を使用
+// 新規作成
 app.post('/api/pilgrimages', upload.any(), (req, res) => {
   let spots = [];
   try { spots = JSON.parse(req.body.spots || '[]'); } catch (e) {}
   
   const workTitle = req.body.workTitle;
   const mapTitle = req.body.mapTitle;
-
-  // カバー画像を探す (frontend: 'coverImage')
   const coverFile = req.files.find(f => f.fieldname === 'coverImage');
   const coverImagePath = coverFile ? coverFile.path.replace(/\\/g, '/') : null;
-
-  console.log('受信:', { workTitle, mapTitle, spotsCount: spots.length });
 
   db.serialize(() => {
     db.get('SELECT id FROM works WHERE title = ?', [workTitle], function(err, row) {
@@ -184,7 +178,6 @@ app.post('/api/pilgrimages', upload.any(), (req, res) => {
       const stmt = db.prepare('INSERT INTO spots (pilgrimage_id, name, latitude, longitude, spot_order, nearby_info, image_path, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
       
       spots.forEach((spot, index) => {
-        // スポットごとの画像を探す (frontend: 'spotImage_0', 'spotImage_1'...)
         const spotFile = req.files.find(f => f.fieldname === `spotImage_${index}`);
         const spotImagePath = spotFile ? spotFile.path.replace(/\\/g, '/') : null;
 
