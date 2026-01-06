@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+// ★ InfoWindow を追加インポート
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 
 const mapContainerStyle = { width: '100%', height: '400px', backgroundColor: '#ddd', marginBottom: '30px', border: '1px solid #ccc', borderRadius: '4px' };
 
@@ -9,6 +10,9 @@ function ViewScreen() {
   const [pilgrimage, setPilgrimage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [map, setMap] = useState(null);
+  
+  // ★追加: 選択中のスポット（吹き出し表示用）
+  const [selectedSpot, setSelectedSpot] = useState(null);
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -38,6 +42,17 @@ function ViewScreen() {
     }
   }, [map, pilgrimage]);
 
+  // ★追加: リストをクリックした時に地図を移動させて吹き出しを開く関数
+  const handleSpotClick = (spot) => {
+    setSelectedSpot(spot);
+    if (map) {
+      map.panTo({ lat: Number(spot.lat), lng: Number(spot.lng) });
+      map.setZoom(16); // 少し拡大
+    }
+    // 画面上部へスクロール
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (loading) return <div className="loading">読み込み中...</div>;
   if (!pilgrimage) return <div className="error">データが見つかりませんでした。</div>;
 
@@ -49,7 +64,6 @@ function ViewScreen() {
         </Link>
       </div>
 
-      {/* ヘッダー情報 */}
       <div className="view-header">
         <span style={{ backgroundColor: '#8c7853', color: '#fff', padding: '3px 8px', borderRadius: '3px', fontSize: '0.8em' }}>
           {pilgrimage.workTitle}
@@ -63,12 +77,44 @@ function ViewScreen() {
         </div>
       </div>
 
-      {/* 地図エリア */}
       {isLoaded ? (
         <GoogleMap mapContainerStyle={mapContainerStyle} onLoad={onLoad} onUnmount={onUnmount} zoom={10} center={{ lat: 35.689, lng: 139.692 }}>
+          
           {pilgrimage.spots.map((spot, index) => (
-            <Marker key={spot.id} position={{ lat: Number(spot.lat), lng: Number(spot.lng) }} label={{ text: (index + 1).toString(), color: "white", fontWeight: "bold" }} />
+            <Marker 
+              key={spot.id} 
+              position={{ lat: Number(spot.lat), lng: Number(spot.lng) }} 
+              label={{ text: (index + 1).toString(), color: "white", fontWeight: "bold" }}
+              // ★追加: ピンをクリックしたら吹き出しを開く
+              onClick={() => setSelectedSpot(spot)}
+            />
           ))}
+
+          {/* ★追加: 吹き出し (InfoWindow) の表示 */}
+          {selectedSpot && (
+            <InfoWindow
+              position={{ lat: Number(selectedSpot.lat), lng: Number(selectedSpot.lng) }}
+              onCloseClick={() => setSelectedSpot(null)}
+              options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
+            >
+              <div style={{ maxWidth: '250px' }}>
+                <h4 style={{ margin: '0 0 5px 0', borderBottom: '1px solid #ccc', paddingBottom: '3px' }}>{selectedSpot.name}</h4>
+                
+                {/* 住所があれば表示 */}
+                {selectedSpot.address && <p style={{ fontSize: '0.8em', margin: '5px 0' }}>📍 {selectedSpot.address}</p>}
+                
+                {selectedSpot.image_path && (
+                  <img 
+                    src={`http://localhost:3000/${selectedSpot.image_path}`} 
+                    alt="spot" 
+                    style={{ width: '100%', borderRadius: '4px', marginTop: '5px' }} 
+                  />
+                )}
+                {selectedSpot.nearby_info && <p style={{ fontSize: '0.85em', color: '#666', marginTop: '5px' }}>{selectedSpot.nearby_info}</p>}
+              </div>
+            </InfoWindow>
+          )}
+
         </GoogleMap>
       ) : ( <div>地図を読み込み中...</div> )}
 
@@ -76,44 +122,40 @@ function ViewScreen() {
         巡礼スポット一覧
       </h3>
 
-      {/* ★変更: 見やすいカード型リスト */}
       <div className="spots-list">
         {pilgrimage.spots.map((spot, index) => (
-          <div key={spot.id} className="spot-card">
+          // リストをクリック可能にする
+          <div 
+            key={spot.id} 
+            className="spot-card" 
+            style={{ cursor: 'pointer', transition: '0.2s' }}
+            onClick={() => handleSpotClick(spot)}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9f9f9'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fff'}
+          >
             
-            {/* 番号 */}
             <div className="spot-number">{index + 1}</div>
             
             <div className="spot-details">
-              {/* 名前と住所 */}
-              <h4 className="spot-name">{spot.name}</h4>
-              {spot.address && (
-                <p className="spot-address">📍 {spot.address}</p>
-              )}
+              <h4 className="spot-name">
+                {spot.name} 
+                <span style={{fontSize:'0.7em', color:'#8c7853', fontWeight:'normal', marginLeft:'10px'}}>
+                  (地図で見る)
+                </span>
+              </h4>
+              
+              {spot.address && ( <p className="spot-address">📍 {spot.address}</p> )}
+              {spot.nearby_info && ( <div className="spot-memo"><span style={{fontWeight:'bold'}}>Memo:</span> {spot.nearby_info}</div> )}
 
-              {/* メモ */}
-              {spot.nearby_info && (
-                <div className="spot-memo">
-                  <span style={{fontWeight:'bold'}}>Memo:</span> {spot.nearby_info}
-                </div>
-              )}
-
-              {/* 画像 */}
               {spot.image_path && (
                 <div className="spot-image-container">
                   <img src={`http://localhost:3000/${spot.image_path}`} alt={spot.name} />
                 </div>
               )}
 
-              {/* Google Mapsリンク */}
-              <div style={{ marginTop: '10px' }}>
-                <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${spot.lat},${spot.lng}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="google-maps-link"
-                >
-                  🗺️ Googleマップで開く
+              <div style={{ marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
+                <a href={`http://googleusercontent.com/maps.google.com/?q=${spot.lat},${spot.lng}`} target="_blank" rel="noopener noreferrer" className="google-maps-link">
+                  🗺️ Googleマップアプリで開く
                 </a>
               </div>
             </div>

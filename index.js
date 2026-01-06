@@ -33,6 +33,7 @@ const storage = multer.diskStorage({
     cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
+// ★重要: 複数ファイルを受け取る設定に変更
 const upload = multer({ storage: storage });
 
 // === 2. データベースの準備 ===
@@ -62,7 +63,7 @@ db.serialize(() => {
     FOREIGN KEY (work_id) REFERENCES works (id)
   )`);
   
-  // address カラムを含むスポットテーブル
+  // ★変更: address, nearby_info, image_path を追加
   db.run(`CREATE TABLE IF NOT EXISTS spots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     pilgrimage_id INTEGER NOT NULL,
@@ -104,7 +105,6 @@ app.post('/login', (req, res) => {
 });
 
 // === 5. マップAPI ===
-
 app.get('/api/works', (req, res) => {
   const sql = `
     SELECT w.id, w.title, COUNT(p.id) as count 
@@ -143,12 +143,15 @@ app.get('/api/pilgrimages/:id', (req, res) => {
   });
 });
 
+// ★新規作成: upload.any() を使用
 app.post('/api/pilgrimages', upload.any(), (req, res) => {
   let spots = [];
   try { spots = JSON.parse(req.body.spots || '[]'); } catch (e) {}
   
   const workTitle = req.body.workTitle;
   const mapTitle = req.body.mapTitle;
+
+  // カバー画像を探す (frontend: 'coverImage')
   const coverFile = req.files.find(f => f.fieldname === 'coverImage');
   const coverImagePath = coverFile ? coverFile.path.replace(/\\/g, '/') : null;
 
@@ -181,6 +184,7 @@ app.post('/api/pilgrimages', upload.any(), (req, res) => {
       const stmt = db.prepare('INSERT INTO spots (pilgrimage_id, name, latitude, longitude, spot_order, nearby_info, image_path, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
       
       spots.forEach((spot, index) => {
+        // スポットごとの画像を探す (frontend: 'spotImage_0', 'spotImage_1'...)
         const spotFile = req.files.find(f => f.fieldname === `spotImage_${index}`);
         const spotImagePath = spotFile ? spotFile.path.replace(/\\/g, '/') : null;
 
