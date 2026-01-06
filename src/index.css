@@ -97,3 +97,8 @@ textarea:focus {
 textarea {
   min-height: 120px;
 }
+/* Google Mapsの表示崩れ防止 */
+.gm-style img {
+  max-width: none !important;
+  height: auto !important;
+}
