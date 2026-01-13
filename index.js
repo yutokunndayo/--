@@ -3,28 +3,37 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
-const multer = require('multer'); // 画像用ライブラリ
+const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// ★重要: 'uploads' フォルダを公開して画像を見れるようにする
+// 画像公開設定
 app.use('/uploads', express.static('uploads'));
+
+// uploadsフォルダ作成
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads');
+}
 
 const JWT_SECRET = 'your-very-strong-secret-key';
 
-// === 1. 画像保存の設定 (Multer) ===
+// === 1. 画像保存の設定 ===
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/'); 
   },
   filename: (req, file, cb) => {
+    // 文字化け対策
+    file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
+// ★重要: 複数ファイル対応 (upload.any)
 const upload = multer({ storage: storage });
 
 // === 2. データベースの準備 ===
@@ -44,7 +53,6 @@ db.serialize(() => {
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL UNIQUE
   )`);
-  // ★ image_path カラムを追加
   db.run(`CREATE TABLE IF NOT EXISTS pilgrimages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
@@ -54,6 +62,8 @@ db.serialize(() => {
     FOREIGN KEY (user_id) REFERENCES users (id),
     FOREIGN KEY (work_id) REFERENCES works (id)
   )`);
+  
+  // ★重要: address, nearby_info, image_path カラムを追加した完全版テーブル
   db.run(`CREATE TABLE IF NOT EXISTS spots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     pilgrimage_id INTEGER NOT NULL,
@@ -61,6 +71,9 @@ db.serialize(() => {
     latitude REAL NOT NULL,
     longitude REAL NOT NULL,
     spot_order INTEGER,
+    nearby_info TEXT,
+    image_path TEXT,
+    address TEXT, 
     FOREIGN KEY (pilgrimage_id) REFERENCES pilgrimages (id)
   )`);
   console.log('データベース初期化完了');
@@ -100,17 +113,34 @@ app.get('/api/pilgrimages', (req, res) => {
   });
 });
 
-// ★画像アップロード対応のPOST
-app.post('/api/pilgrimages', upload.single('image'), (req, res) => {
-  // FormData形式で送られてくるため、JSON.parseが必要
+app.get('/api/pilgrimages/:id', (req, res) => {
+  const mapId = req.params.id;
+  const sqlMap = `
+    SELECT p.id, p.title AS mapTitle, p.image_path, w.title AS workTitle 
+    FROM pilgrimages p JOIN works w ON p.work_id = w.id WHERE p.id = ?
+  `;
+  db.get(sqlMap, [mapId], (err, map) => {
+    if (err || !map) return res.status(404).json({ error: 'マップが見つかりません' });
+
+    const sqlSpots = `SELECT * FROM spots WHERE pilgrimage_id = ? ORDER BY spot_order ASC`;
+    db.all(sqlSpots, [mapId], (err, spots) => {
+      if (err) return res.status(500).json({ error: 'DBエラー' });
+      res.json({ ...map, author: '名無しさん', spots });
+    });
+  });
+});
+
+// ★新規作成: upload.any() で全画像を受け取る
+app.post('/api/pilgrimages', upload.any(), (req, res) => {
   let spots = [];
   try { spots = JSON.parse(req.body.spots || '[]'); } catch (e) {}
   
   const workTitle = req.body.workTitle;
   const mapTitle = req.body.mapTitle;
-  const imagePath = req.file ? req.file.path.replace(/\\/g, '/') : null;
+  const coverFile = req.files.find(f => f.fieldname === 'coverImage');
+  const coverImagePath = coverFile ? coverFile.path.replace(/\\/g, '/') : null;
 
-  console.log('受信:', { workTitle, mapTitle, imagePath });
+  console.log('受信:', { workTitle, mapTitle, spotsCount: spots.length });
 
   db.serialize(() => {
     db.get('SELECT id FROM works WHERE title = ?', [workTitle], function(err, row) {
@@ -127,7 +157,7 @@ app.post('/api/pilgrimages', upload.single('image'), (req, res) => {
     function insertPilgrimage(workId) {
       db.run(
         'INSERT INTO pilgrimages (title, work_id, user_id, image_path) VALUES (?, ?, ?, ?)',
-        [mapTitle, workId, null, imagePath],
+        [mapTitle, workId, null, coverImagePath],
         function(err) {
           if (err) return res.status(500).json({ error: 'DBエラー' });
           insertSpots(this.lastID);
@@ -136,8 +166,25 @@ app.post('/api/pilgrimages', upload.single('image'), (req, res) => {
     }
 
     function insertSpots(pilgrimageId) {
-      const stmt = db.prepare('INSERT INTO spots (pilgrimage_id, name, latitude, longitude, spot_order) VALUES (?, ?, ?, ?, ?)');
-      spots.forEach((spot, index) => stmt.run(pilgrimageId, spot.name, spot.lat, spot.lng, index + 1));
+      // ★完全版: 住所(address)やメモ(nearby_info)も保存
+      const stmt = db.prepare('INSERT INTO spots (pilgrimage_id, name, latitude, longitude, spot_order, nearby_info, image_path, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+      
+      spots.forEach((spot, index) => {
+        const spotFile = req.files.find(f => f.fieldname === `spotImage_${index}`);
+        const spotImagePath = spotFile ? spotFile.path.replace(/\\/g, '/') : null;
+
+        stmt.run(
+          pilgrimageId, 
+          spot.name, 
+          spot.lat, 
+          spot.lng, 
+          index + 1, 
+          spot.nearbyInfo || '', 
+          spotImagePath,
+          spot.address || ''
+        );
+      });
+      
       stmt.finalize((err) => {
         if (err) return res.status(500).json({ error: 'DBエラー' });
         res.status(201).json({ message: '保存完了', pilgrimageId });

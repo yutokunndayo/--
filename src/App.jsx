@@ -5,7 +5,8 @@ import HomeScreen from './HomeScreen.jsx';
 import PostScreen from './PostScreen.jsx';
 import ViewScreen from './ViewScreen.jsx';
 import LoginScreen from './LoginScreen.jsx';
-import NavBar from './NavBar.jsx'; // NavBarを使っている場合
+import SelectionScreen from './SelectionScreen.jsx'; // ★追加
+import NavBar from './NavBar.jsx'; 
 
 import './App.css'; 
 
@@ -13,7 +14,7 @@ import './App.css';
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
   if (!token) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />; // 未ログインならトップ（ログイン画面）へ
   }
   return children;
 };
@@ -22,24 +23,25 @@ function App() {
   return (
     <BrowserRouter>
       <div className="App">
-        
-        {/* メニューバー（ログイン時のみ表示） */}
-        <NavBar />
+        <NavBar /> 
 
         <div className="content">
           <Routes>
-            {/* ルートパス(/) をホーム画面にする（ログイン必須） */}
+            {/* ★変更: トップページ(/)はログイン画面にする */}
+            <Route path="/" element={<LoginScreen />} />
+            <Route path="/login" element={<LoginScreen />} />
+
+            {/* ★追加: 選択画面 (ログイン必須) */}
             <Route 
-              path="/" 
+              path="/select" 
               element={
                 <ProtectedRoute>
-                  <HomeScreen />
+                  <SelectionScreen />
                 </ProtectedRoute>
               } 
             />
-            <Route path="/login" element={<LoginScreen />} />
-            
-            {/* /home も / と同じくホーム画面へ */}
+
+            {/* 一覧・検索画面 (ログイン必須) */}
             <Route 
               path="/home" 
               element={
@@ -48,19 +50,23 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-            <Route 
-              path="/post" 
-              element={
-                <ProtectedRoute>
-                  <PostScreen />
-                </ProtectedRoute>
-              } 
-            />
+
+            {/* 詳細画面 (ログイン必須) */}
             <Route 
               path="/view/:pilgrimageId" 
               element={
                 <ProtectedRoute>
                   <ViewScreen />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* 投稿画面 (ログイン必須) */}
+            <Route 
+              path="/post" 
+              element={
+                <ProtectedRoute>
+                  <PostScreen />
                 </ProtectedRoute>
               } 
             />
