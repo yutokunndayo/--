@@ -19,8 +19,13 @@ function LoginScreen() {
         else {
           const data = await response.json();
           localStorage.setItem('token', data.token);
+          
+          // ★ここが重要！自分の情報を保存する
+          localStorage.setItem('username', data.username);
+          localStorage.setItem('userId', data.userId);
+          
           alert('ログイン成功！');
-          navigate('/select'); // ★選択画面へ
+          navigate('/home'); // ホームへ
         }
       } else alert('失敗しました');
     } catch (err) { console.error(err); }

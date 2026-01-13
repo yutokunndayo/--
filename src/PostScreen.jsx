@@ -18,7 +18,7 @@ function PostScreen() {
   const [coverImage, setCoverImage] = useState(null);
   const [spots, setSpots] = useState([]);
   
-  // 送信中かどうかを判定するフラグ（★追加）
+  // 送信中かどうかを判定するフラグ
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [spotName, setSpotName] = useState('');
@@ -34,15 +34,7 @@ function PostScreen() {
 
   // 住所検索機能
   const handleSearchAddress = () => {
-    if (!isLoaded) {
-      alert("地図機能を読み込み中です。少々お待ちください。");
-      return;
-    }
-    if (!address) {
-      alert("住所を入力してください。");
-      return;
-    }
-
+    if (!isLoaded || !address) return;
     const geocoder = new window.google.maps.Geocoder();
     geocoder.geocode({ address: address }, (results, status) => {
       if (status === 'OK' && results[0]) {
@@ -52,13 +44,8 @@ function PostScreen() {
         setSpotLat(lat);
         setSpotLng(lng);
         if (!spotName) setSpotName(address);
-        if (map) {
-          map.panTo({ lat, lng });
-          map.setZoom(12);
-        }
-      } else {
-        alert('場所が見つかりませんでした: ' + status);
-      }
+        if (map) { map.panTo({ lat, lng }); map.setZoom(16); }
+      } else { alert('場所が見つかりませんでした: ' + status); }
     });
   };
 
@@ -68,14 +55,8 @@ function PostScreen() {
   };
 
   const handleAddSpot = () => {
-    if (!spotName) {
-      alert('「場所名」を入力してください');
-      return;
-    }
-    if (!spotLat || !spotLng) {
-      alert('「住所検索」するか、地図をクリックしてピンを立ててください');
-      return;
-    }
+    if (!spotName) { alert('「場所名」を入力してください'); return; }
+    if (!spotLat || !spotLng) { alert('「住所検索」するか、地図をクリックしてピンを立ててください'); return; }
 
     const newSpot = {
       id: spots.length + 1, 
@@ -95,19 +76,18 @@ function PostScreen() {
   // 保存ボタン
   const handleSubmitMap = async (e) => {
     e.preventDefault();
-    if (spots.length === 0) {
-      alert("スポットが1つもありません");
-      return;
-    }
-
-    // ★追加: 既に送信中なら何もしない（連打防止）
+    if (spots.length === 0) { alert("スポットが1つもありません"); return; }
     if (isSubmitting) return;
-    setIsSubmitting(true); // 送信開始
+    setIsSubmitting(true);
 
     const formData = new FormData();
     formData.append('workTitle', workTitle);
     formData.append('mapTitle', mapTitle);
     if (coverImage) formData.append('coverImage', coverImage);
+
+    // ★作成者のIDを追加
+    const userId = localStorage.getItem('userId');
+    if (userId) formData.append('userId', userId);
 
     const spotsData = spots.map(s => ({
       name: s.name, address: s.address, lat: s.lat, lng: s.lng, nearbyInfo: s.nearbyInfo
@@ -115,35 +95,18 @@ function PostScreen() {
     formData.append('spots', JSON.stringify(spotsData));
 
     spots.forEach((spot, index) => {
-      if (spot.imageFile) {
-        // ★確認用: ここでファイルサイズが巨大でないか確認できます
-        console.log(`Spot ${index} Image Size:`, spot.imageFile.size);
-        formData.append(`spotImage_${index}`, spot.imageFile);
-      }
+      if (spot.imageFile) formData.append(`spotImage_${index}`, spot.imageFile);
     });
 
     try {
-      // ★デバッグ用: 実際に送るデータを確認（開発者ツールのConsoleに出ます）
-      console.log("送信開始...");
-      
-      const response = await fetch('http://localhost:3000/api/pilgrimages', { 
-        method: 'POST', 
-        body: formData 
-      });
-
-      if (!response.ok) {
-        // エラーレスポンスの内容を詳しく取得する
-        const errorText = await response.text();
-        throw new Error(`サーバーエラー: ${response.status} ${errorText}`);
-      }
-      
+      const response = await fetch('http://localhost:3000/api/pilgrimages', { method: 'POST', body: formData });
+      if (!response.ok) throw new Error(`サーバーエラー: ${response.status}`);
       alert('保存しました！');
       navigate('/home');
     } catch (err) { 
-      console.error("Upload Error:", err);
+      console.error(err);
       alert(`保存失敗: ${err.message}`); 
     } finally {
-      // ★追加: 成功しても失敗しても送信中フラグを解除
       setIsSubmitting(false);
     }
   };
@@ -152,8 +115,6 @@ function PostScreen() {
     <div>
       <h2>聖地巡礼マップを作成する</h2>
       <form onSubmit={handleSubmitMap}>
-        {/* ... (省略: タイトル入力などの部分は変更なし) ... */}
-        
         <div style={{ marginBottom: '1.5rem' }}>
           <label>作品名:</label>
           <input type="text" value={workTitle} onChange={(e) => setWorkTitle(e.target.value)} required placeholder="例: 作品A" />
@@ -170,7 +131,6 @@ function PostScreen() {
         <hr />
         <h3>聖地スポットを追加</h3>
         
-        {/* ... (省略: 地図部分は変更なし) ... */}
         <div style={{ marginBottom: '1rem', backgroundColor: '#e6dac8', padding: '10px', borderRadius: '4px' }}>
           <label style={{display:'block', marginBottom:'5px', fontSize:'0.9em'}}>1. 住所検索 & 位置調整</label>
           <div style={{ display: 'flex', gap: '10px', marginBottom:'10px' }}>
@@ -214,6 +174,7 @@ function PostScreen() {
           <p style={{fontSize:'0.8em', color:'#666'}}>※ピンをドラッグするか、地図をクリックして微調整できます。</p>
         </div>
 
+        {/* ★ここが復活・修正した箇所です */}
         <div style={{ marginBottom: '1rem' }}>
           <label>2. スポット詳細</label>
           <input type="text" value={spotName} onChange={(e) => setSpotName(e.target.value)} placeholder="場所名 (必須)" style={{marginBottom:'10px'}} />
@@ -226,15 +187,28 @@ function PostScreen() {
         <h4>追加済み: {spots.length}件</h4>
         <ul>
           {spots.map(s => (
-            <li key={s.id}>
-              <strong>{s.name}</strong> {s.imageFile && '📷'} 
-              <span style={{fontSize:'0.8em', color:'#666', marginLeft:'5px'}}>({s.address || '住所なし'})</span>
+            <li key={s.id} style={{marginBottom:'5px', display:'flex', alignItems:'center'}}>
+              <strong>{s.name}</strong> 
+              
+              {/* ★変更: 画像があれば、カメラマークではなくサムネイルを表示 */}
+              {s.imageFile ? (
+                <img 
+                  src={URL.createObjectURL(s.imageFile)} 
+                  alt="プレビュー" 
+                  style={{height: '40px', marginLeft: '10px', borderRadius: '4px', border:'1px solid #ccc'}} 
+                />
+              ) : (
+                <span style={{fontSize:'0.8em', color:'#999', marginLeft:'5px'}}>(画像なし)</span>
+              )}
+
+              <span style={{fontSize:'0.8em', color:'#666', marginLeft:'10px'}}>
+                ({s.address || '住所なし'})
+              </span>
             </li>
           ))}
         </ul>
         
         <hr />
-        {/* ★変更: 保存ボタンを送信中は無効化し、テキストを変える */}
         <button 
           type="submit" 
           disabled={spots.length === 0 || isSubmitting} 
@@ -242,7 +216,7 @@ function PostScreen() {
             padding: '15px', 
             fontSize: '1.1em',
             width: '100%',
-            backgroundColor: isSubmitting ? '#ccc' : '#4CAF50', // 色を変える
+            backgroundColor: isSubmitting ? '#ccc' : '#4CAF50', 
             color: 'white',
             cursor: isSubmitting ? 'wait' : 'pointer'
           }}
