@@ -18,7 +18,7 @@ function ViewScreen() {
     <div>
       <Link to="/home">←戻る</Link>
       <h2>{data.mapTitle}</h2>
-      {isLoaded && <GoogleMap mapContainerStyle={{width:'100%', height:'400px'}} center={{lat:35.689, lng:139.692}} zoom={10} onLoad={(map)=>{
+      {isLoaded && <GoogleMap mapContainerStyle={{width:'100%', height:'400px'}} center={{lat:35.689, lng:139.692}} zoom={12} onLoad={(map)=>{
         const b = new window.google.maps.LatLngBounds();
         data.spots.forEach(s => b.extend({lat: s.latitude, lng: s.longitude}));
         map.fitBounds(b);
