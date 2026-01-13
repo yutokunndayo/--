@@ -1,24 +1,16 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-// ★地図機能のインポート
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
-const mapContainerStyle = {
-  width: '100%', height: '300px', marginTop: '10px', marginBottom: '20px', borderRadius: '4px', border: '1px solid #ccc'
-};
+const mapContainerStyle = { width: '100%', height: '300px', marginBottom: '20px' };
 
 function PostScreen() {
   const navigate = useNavigate();
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-  });
-
+  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY });
   const [workTitle, setWorkTitle] = useState('');
   const [mapTitle, setMapTitle] = useState('');
   const [coverImage, setCoverImage] = useState(null);
   const [spots, setSpots] = useState([]);
-  
   const [spotName, setSpotName] = useState('');
   const [address, setAddress] = useState(''); 
   const [spotLat, setSpotLat] = useState('');
@@ -27,126 +19,57 @@ function PostScreen() {
   const [spotImage, setSpotImage] = useState(null);
   const [map, setMap] = useState(null);
 
-  const onLoad = useCallback((mapInstance) => setMap(mapInstance), []);
-  const onUnmount = useCallback(() => setMap(null), []);
-
-  // 住所検索機能
+  const onLoad = useCallback((m) => setMap(m), []);
   const handleSearchAddress = () => {
     if (!isLoaded || !address) return;
     const geocoder = new window.google.maps.Geocoder();
     geocoder.geocode({ address: address }, (results, status) => {
       if (status === 'OK' && results[0]) {
-        const location = results[0].geometry.location;
-        const lat = location.lat();
-        const lng = location.lng();
-        setSpotLat(lat);
-        setSpotLng(lng);
-        // 名前が未入力なら住所を自動入力
+        const loc = results[0].geometry.location;
+        setSpotLat(loc.lat()); setSpotLng(loc.lng());
         if (!spotName) setSpotName(address);
-        // 地図を移動
-        if (map) { map.panTo({ lat, lng }); map.setZoom(16); }
-      } else { alert('場所が見つかりませんでした: ' + status); }
+        if (map) { map.panTo(loc); map.setZoom(16); }
+      } else alert('見つかりませんでした');
     });
   };
-
-  // 地図クリックで座標入力
-  const handleMapClick = (e) => {
-    setSpotLat(e.latLng.lat());
-    setSpotLng(e.latLng.lng());
-  };
-
   const handleAddSpot = () => {
-    if (!spotName || !spotLat || !spotLng) { alert('場所名と座標が必要です'); return; }
-    const newSpot = {
-      id: spots.length + 1, name: spotName, address: address,
-      lat: parseFloat(spotLat), lng: parseFloat(spotLng),
-      nearbyInfo: nearbyInfo, imageFile: spotImage,
-    };
-    setSpots([...spots, newSpot]);
-    setSpotName(''); setAddress(''); setSpotLat(''); setSpotLng('');
-    setNearbyInfo(''); setSpotImage(null);
+    if (!spotName || !spotLat) return;
+    setSpots([...spots, { id: spots.length+1, name: spotName, address, lat: spotLat, lng: spotLng, nearbyInfo, imageFile: spotImage }]);
+    setSpotName(''); setAddress(''); setSpotLat(''); setSpotLng(''); setNearbyInfo(''); setSpotImage(null);
   };
-
-  const handleSubmitMap = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const formData = new FormData();
-    formData.append('workTitle', workTitle);
-    formData.append('mapTitle', mapTitle);
-    if (coverImage) formData.append('coverImage', coverImage);
-
-    // スポット情報をJSON文字列化（画像以外）
-    const spotsData = spots.map(s => ({
-      name: s.name, address: s.address, lat: s.lat, lng: s.lng, nearbyInfo: s.nearbyInfo
-    }));
-    formData.append('spots', JSON.stringify(spotsData));
-
-    // スポットごとの画像を個別に追加
-    spots.forEach((spot, index) => {
-      if (spot.imageFile) formData.append(`spotImage_${index}`, spot.imageFile);
-    });
-
-    try {
-      const response = await fetch('http://localhost:3000/api/pilgrimages', { method: 'POST', body: formData });
-      if (!response.ok) throw new Error(`サーバーエラー: ${response.status}`);
-      alert('保存しました！');
-      navigate('/home');
-    } catch (err) { alert(`保存失敗: ${err.message}`); }
+    const fd = new FormData();
+    fd.append('workTitle', workTitle); fd.append('mapTitle', mapTitle);
+    if (coverImage) fd.append('coverImage', coverImage);
+    fd.append('spots', JSON.stringify(spots.map(s => ({ name: s.name, address: s.address, lat: s.lat, lng: s.lng, nearbyInfo: s.nearbyInfo }))));
+    spots.forEach((s, i) => { if (s.imageFile) fd.append(`spotImage_${i}`, s.imageFile); });
+    await fetch('http://localhost:3000/api/pilgrimages', { method: 'POST', body: fd });
+    alert('保存完了'); navigate('/home');
   };
 
   return (
     <div>
-      <h2>聖地巡礼マップを作成する</h2>
-      <form onSubmit={handleSubmitMap}>
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label>作品名:</label>
-          <input type="text" value={workTitle} onChange={(e) => setWorkTitle(e.target.value)} required placeholder="例: 作品A" />
-        </div>
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label>マップのタイトル:</label>
-          <input type="text" value={mapTitle} onChange={(e) => setMapTitle(e.target.value)} required placeholder="例: 東京聖地巡礼" />
-        </div>
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label>カバー画像:</label>
-          <input type="file" accept="image/*" onChange={(e) => setCoverImage(e.target.files[0])} style={{ border: 'none' }} />
-        </div>
-
+      <h2>マップ作成</h2>
+      <form onSubmit={handleSubmit}>
+        <input value={workTitle} onChange={(e)=>setWorkTitle(e.target.value)} placeholder="作品名" style={{display:'block', marginBottom:'10px'}} required />
+        <input value={mapTitle} onChange={(e)=>setMapTitle(e.target.value)} placeholder="マップタイトル" style={{display:'block', marginBottom:'10px'}} required />
+        <label>カバー画像: <input type="file" onChange={(e)=>setCoverImage(e.target.files[0])} /></label>
         <hr />
-        <h3>聖地スポットを追加</h3>
-        <div style={{ marginBottom: '1rem', backgroundColor: '#e6dac8', padding: '10px', borderRadius: '4px' }}>
-          <label style={{display:'block', marginBottom:'5px', fontSize:'0.9em'}}>1. 住所検索 & 位置調整</label>
-          <div style={{ display: 'flex', gap: '10px', marginBottom:'10px' }}>
-            <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="例: 東京タワー" style={{ flexGrow: 1 }} />
-            <button type="button" onClick={handleSearchAddress} style={{ backgroundColor: '#8c7853', color: '#fff' }}>検索</button>
-          </div>
-          
-          {/* 地図表示エリア */}
-          {isLoaded && (
-            <GoogleMap
-              mapContainerStyle={mapContainerStyle}
-              center={spotLat ? { lat: parseFloat(spotLat), lng: parseFloat(spotLng) } : { lat: 35.689, lng: 139.692 }}
-              zoom={spotLat ? 16 : 10}
-              onLoad={onLoad} onUnmount={onUnmount}
-              onClick={handleMapClick}
-            >
-              {spotLat && spotLng && <Marker position={{ lat: parseFloat(spotLat), lng: parseFloat(spotLng) }} draggable={true} onDragEnd={(e)=>{setSpotLat(e.latLng.lat()); setSpotLng(e.latLng.lng());}} />}
-            </GoogleMap>
-          )}
-          <p style={{fontSize:'0.8em', color:'#666'}}>※ピンをドラッグするか、地図をクリックして微調整できます。</p>
+        <h3>スポット追加</h3>
+        <div style={{display:'flex', gap:'5px', marginBottom:'10px'}}>
+          <input value={address} onChange={(e)=>setAddress(e.target.value)} placeholder="住所検索 (例: 東京タワー)" />
+          <button type="button" onClick={handleSearchAddress}>検索</button>
         </div>
-
-        <div style={{ marginBottom: '1rem' }}>
-          <label>2. スポット詳細</label>
-          <input type="text" value={spotName} onChange={(e) => setSpotName(e.target.value)} placeholder="場所名" style={{marginBottom:'10px'}} />
-          <textarea value={nearbyInfo} onChange={(e) => setNearbyInfo(e.target.value)} placeholder="メモ・おすすめ情報" style={{ height: '60px', marginBottom:'10px' }} />
-          <input type="file" accept="image/*" key={spotImage ? spotImage.name : 'reset'} onChange={(e) => setSpotImage(e.target.files[0])} style={{ border: 'none', fontSize: '0.9em' }} />
-        </div>
-        
-        <button type="button" onClick={handleAddSpot} style={{ width: '100%', marginBottom: '20px' }}>↓ このスポットを追加</button>
-
-        <h4>追加済み: {spots.length}件</h4>
-        <ul>{spots.map(s => <li key={s.id}>{s.name} {s.imageFile && '📷'}</li>)}</ul>
-        <hr />
-        <button type="submit" disabled={spots.length === 0}>保存する</button>
+        {isLoaded && <GoogleMap mapContainerStyle={mapContainerStyle} center={{lat:35.689, lng:139.692}} zoom={10} onLoad={onLoad} onClick={(e)=>{setSpotLat(e.latLng.lat()); setSpotLng(e.latLng.lng());}}>
+          {spotLat && <Marker position={{lat: Number(spotLat), lng: Number(spotLng)}} draggable={true} onDragEnd={(e)=>{setSpotLat(e.latLng.lat()); setSpotLng(e.latLng.lng());}} />}
+        </GoogleMap>}
+        <input value={spotName} onChange={(e)=>setSpotName(e.target.value)} placeholder="場所名" style={{display:'block', marginBottom:'5px'}} />
+        <textarea value={nearbyInfo} onChange={(e)=>setNearbyInfo(e.target.value)} placeholder="メモ" style={{display:'block', marginBottom:'5px', width:'100%'}} />
+        <label>写真: <input type="file" key={spotImage ? 'img' : 'no'} onChange={(e)=>setSpotImage(e.target.files[0])} /></label>
+        <button type="button" onClick={handleAddSpot} style={{display:'block', marginTop:'10px'}}>追加</button>
+        <ul>{spots.map(s => <li key={s.id}>{s.name}</li>)}</ul>
+        <hr /><button type="submit" disabled={!spots.length}>保存</button>
       </form>
     </div>
   );
