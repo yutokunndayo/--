@@ -10,79 +10,32 @@ const fs = require('fs');
 const app = express();
 app.use(express.json());
 app.use(cors());
-
-// 画像公開設定
 app.use('/uploads', express.static('uploads'));
-
-// uploadsフォルダ作成
-if (!fs.existsSync('uploads')) {
-  fs.mkdirSync('uploads');
-}
+if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 
 const JWT_SECRET = 'your-very-strong-secret-key';
 
-// === 1. 画像保存の設定 ===
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/'); 
-  },
+  destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => {
-    // 文字化け対策
     file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname));
   }
 });
-// ★重要: 複数ファイル対応 (upload.any)
 const upload = multer({ storage: storage });
 
-// === 2. データベースの準備 ===
-const db = new sqlite3.Database('./pilgrimage.db', (err) => {
-  if (err) console.error(err.message);
-  console.log('Connected to the pilgrimage.db database.');
-});
+const db = new sqlite3.Database('./pilgrimage.db');
 
-// === 3. テーブル作成 ===
 db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL
-  )`);
-  db.run(`CREATE TABLE IF NOT EXISTS works (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL UNIQUE
-  )`);
-  db.run(`CREATE TABLE IF NOT EXISTS pilgrimages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    user_id INTEGER,
-    work_id INTEGER,
-    image_path TEXT, 
-    FOREIGN KEY (user_id) REFERENCES users (id),
-    FOREIGN KEY (work_id) REFERENCES works (id)
-  )`);
-  
-  // ★重要: address, nearby_info, image_path カラムを追加した完全版テーブル
-  db.run(`CREATE TABLE IF NOT EXISTS spots (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pilgrimage_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    latitude REAL NOT NULL,
-    longitude REAL NOT NULL,
-    spot_order INTEGER,
-    nearby_info TEXT,
-    image_path TEXT,
-    address TEXT, 
-    FOREIGN KEY (pilgrimage_id) REFERENCES pilgrimages (id)
-  )`);
-  console.log('データベース初期化完了');
+  db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL)`);
+  db.run(`CREATE TABLE IF NOT EXISTS works (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL UNIQUE)`);
+  db.run(`CREATE TABLE IF NOT EXISTS pilgrimages (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, user_id INTEGER, work_id INTEGER, image_path TEXT, FOREIGN KEY (user_id) REFERENCES users (id), FOREIGN KEY (work_id) REFERENCES works (id))`);
+  // ★完全版テーブル
+  db.run(`CREATE TABLE IF NOT EXISTS spots (id INTEGER PRIMARY KEY AUTOINCREMENT, pilgrimage_id INTEGER NOT NULL, name TEXT NOT NULL, latitude REAL NOT NULL, longitude REAL NOT NULL, spot_order INTEGER, nearby_info TEXT, image_path TEXT, address TEXT, FOREIGN KEY (pilgrimage_id) REFERENCES pilgrimages (id))`);
 });
 
-// === 4. 認証API ===
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).send('情報不足');
   try {
     const hash = await bcrypt.hash(password, 10);
     db.run('INSERT INTO users (username, password_hash) VALUES (?, ?)', [username, hash], function(err) {
@@ -104,91 +57,49 @@ app.post('/login', (req, res) => {
   });
 });
 
-// === 5. マップAPI ===
 app.get('/api/pilgrimages', (req, res) => {
   const sql = `SELECT p.id, p.title, p.image_path, w.title AS work FROM pilgrimages p JOIN works w ON p.work_id = w.id ORDER BY p.id DESC`;
-  db.all(sql, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'DBエラー' });
-    res.json(rows);
-  });
+  db.all(sql, [], (err, rows) => { if (err) return res.status(500).json({ error: 'DBエラー' }); res.json(rows); });
 });
 
 app.get('/api/pilgrimages/:id', (req, res) => {
   const mapId = req.params.id;
-  const sqlMap = `
-    SELECT p.id, p.title AS mapTitle, p.image_path, w.title AS workTitle 
-    FROM pilgrimages p JOIN works w ON p.work_id = w.id WHERE p.id = ?
-  `;
-  db.get(sqlMap, [mapId], (err, map) => {
+  db.get(`SELECT p.id, p.title AS mapTitle, p.image_path, w.title AS workTitle FROM pilgrimages p JOIN works w ON p.work_id = w.id WHERE p.id = ?`, [mapId], (err, map) => {
     if (err || !map) return res.status(404).json({ error: 'マップが見つかりません' });
-
-    const sqlSpots = `SELECT * FROM spots WHERE pilgrimage_id = ? ORDER BY spot_order ASC`;
-    db.all(sqlSpots, [mapId], (err, spots) => {
+    db.all(`SELECT * FROM spots WHERE pilgrimage_id = ? ORDER BY spot_order ASC`, [mapId], (err, spots) => {
       if (err) return res.status(500).json({ error: 'DBエラー' });
       res.json({ ...map, author: '名無しさん', spots });
     });
   });
 });
 
-// ★新規作成: upload.any() で全画像を受け取る
 app.post('/api/pilgrimages', upload.any(), (req, res) => {
   let spots = [];
   try { spots = JSON.parse(req.body.spots || '[]'); } catch (e) {}
-  
-  const workTitle = req.body.workTitle;
-  const mapTitle = req.body.mapTitle;
+  const { workTitle, mapTitle } = req.body;
   const coverFile = req.files.find(f => f.fieldname === 'coverImage');
   const coverImagePath = coverFile ? coverFile.path.replace(/\\/g, '/') : null;
 
-  console.log('受信:', { workTitle, mapTitle, spotsCount: spots.length });
-
   db.serialize(() => {
     db.get('SELECT id FROM works WHERE title = ?', [workTitle], function(err, row) {
-      if (err) return res.status(500).json({ error: 'DBエラー' });
       if (row) insertPilgrimage(row.id);
-      else {
-        db.run('INSERT INTO works (title) VALUES (?)', [workTitle], function(err) {
-          if (err) return res.status(500).json({ error: 'DBエラー' });
-          insertPilgrimage(this.lastID);
-        });
-      }
+      else db.run('INSERT INTO works (title) VALUES (?)', [workTitle], function(err) { insertPilgrimage(this.lastID); });
     });
 
     function insertPilgrimage(workId) {
-      db.run(
-        'INSERT INTO pilgrimages (title, work_id, user_id, image_path) VALUES (?, ?, ?, ?)',
-        [mapTitle, workId, null, coverImagePath],
-        function(err) {
-          if (err) return res.status(500).json({ error: 'DBエラー' });
-          insertSpots(this.lastID);
-        }
-      );
+      db.run('INSERT INTO pilgrimages (title, work_id, user_id, image_path) VALUES (?, ?, ?, ?)', [mapTitle, workId, null, coverImagePath], function(err) {
+        insertSpots(this.lastID);
+      });
     }
 
     function insertSpots(pilgrimageId) {
-      // ★完全版: 住所(address)やメモ(nearby_info)も保存
       const stmt = db.prepare('INSERT INTO spots (pilgrimage_id, name, latitude, longitude, spot_order, nearby_info, image_path, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-      
       spots.forEach((spot, index) => {
         const spotFile = req.files.find(f => f.fieldname === `spotImage_${index}`);
         const spotImagePath = spotFile ? spotFile.path.replace(/\\/g, '/') : null;
-
-        stmt.run(
-          pilgrimageId, 
-          spot.name, 
-          spot.lat, 
-          spot.lng, 
-          index + 1, 
-          spot.nearbyInfo || '', 
-          spotImagePath,
-          spot.address || ''
-        );
+        stmt.run(pilgrimageId, spot.name, spot.lat, spot.lng, index + 1, spot.nearbyInfo || '', spotImagePath, spot.address || '');
       });
-      
-      stmt.finalize((err) => {
-        if (err) return res.status(500).json({ error: 'DBエラー' });
-        res.status(201).json({ message: '保存完了', pilgrimageId });
-      });
+      stmt.finalize(() => res.status(201).json({ message: '保存完了', pilgrimageId }));
     }
   });
 });
