@@ -216,7 +216,7 @@ function PostScreen() {
             padding: '15px', 
             fontSize: '1.1em',
             width: '100%',
-            backgroundColor: isSubmitting ? '#ccc' : '#4CAF50', 
+            backgroundColor: isSubmitting ? '#e07a5f' : '#4CAF50', 
             color: 'white',
             cursor: isSubmitting ? 'wait' : 'pointer'
           }}

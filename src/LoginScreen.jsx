@@ -39,7 +39,7 @@ function LoginScreen() {
         <input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="パスワード" style={{width:'100%', marginBottom:'10px'}} />
         <button type="submit" style={{width:'100%', padding:'10px'}}>{isRegister ? '登録' : 'ログイン'}</button>
       </form>
-      <button onClick={() => setIsRegister(!isRegister)} style={{marginTop:'10px', background:'none', border:'none', color:'blue', cursor:'pointer'}}>
+      <button onClick={() => setIsRegister(!isRegister)} style={{marginTop:'10px', background:'none', border:'none', color:'#e07a5f', cursor:'pointer'}}>
         {isRegister ? 'ログインへ戻る' : '新規登録はこちら'}
       </button>
     </div>
