@@ -41,37 +41,38 @@ body {
 /* ★★★ ここが「白紙の地図」本体です ★★★ */
 #root > div {
   /* 紙の色：真っ白ではなく、目に優しいクリームホワイト */
-  background-color: #fdfbf7;
+  /* background-color: #fdfbf7;
   
   /* 紙の質感を出すための微細なノイズ（オプション） */
-  background-image: linear-gradient(#e8e4dc 1px, transparent 1px), linear-gradient(90deg, #e8e4dc 1px, transparent 1px);
+  /* background-image: linear-gradient(#e8e4dc 1px, transparent 1px), linear-gradient(90deg, #e8e4dc 1px, transparent 1px);
   background-size: 40px 40px;
-  background-position: -1px -1px;
+  background-position: -1px -1px; */ 
 
   /* サイズ設定：横長の長方形 */
   width: 100%;
-  max-width: 700px; /* 程よい広さ */
-  min-height: 500px; /* 最低限の高さ */
+  max-width: 900px; /* 程よい広さ */
+  min-height: 250px; /* 最低限の高さ */
   height: auto;
   
   /* 紙の立体感（影） */
-  box-shadow: 
+  /* box-shadow: 
     0 1px 1px rgba(0,0,0,0.15), 
     0 10px 0 -5px #eee, 
     0 10px 1px -4px rgba(0,0,0,0.15), 
     0 20px 0 -10px #eee, 
     0 20px 1px -9px rgba(0,0,0,0.15),
-    0 30px 50px rgba(0,0,0,0.5); /* 全体の深い影 */
+    0 25px 45px rgba(0,0,0,0.5); 全体の深い影 */
 
   /* 余白 */
-  padding: 3rem 4rem;
+  padding: 1rem 1rem;
   
   /* 形 */
-  border: 1px solid #dcd6ce;
-  border-radius: 2px; /* 角を少しだけ丸く（紙っぽく） */
+  /* border: 1px solid #dcd6ce;
+  border-radius: 2px; 角を少しだけ丸く（紙っぽく） 
   box-sizing: border-box;
-  
+   */
   /* 相対配置（内部要素のため） */
+  overflow: hidden;
   position: relative;
 }
 
