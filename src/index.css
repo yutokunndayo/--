@@ -1,16 +1,12 @@
 :root {
-  /* 手紙や地図のような雰囲気を出すため、明朝体を使用 */
   font-family: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
   line-height: 1.8;
   font-weight: 500;
-
-  /* ▼▼▼ 背景画像の設定 ▼▼▼ */
   background-image: url('/background.jpg');
   background-size: cover;
   background-position: center center;
   background-attachment: fixed;
-  background-color: #3a2e3d; /* 画像読み込み前の色 */
-
+  background-color: #3a2e3d;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -22,158 +18,123 @@ body {
   padding: 0;
   width: 100%;
   min-height: 100vh;
-  color: #5a4d41; /* 文字色：黒ではなくインク色（焦げ茶） */
+  color: #4a3b2a;
   
-  /* 画面中央に配置 */
+  /* ★変更：NavBarに合わせて上に詰める */
+  padding-top: 60px; 
+  
+  box-sizing: border-box;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start; 
 }
 
 #root {
   width: 100%;
   display: flex;
   justify-content: center;
-  padding: 20px; /* スマホで端が切れないように余白 */
+  padding: 20px;
   box-sizing: border-box;
 }
 
-/* ★★★ ここが「白紙の地図」本体です ★★★ */
+/* ★★★ メインの操作エリア ★★★ */
 #root > div {
-  /* 紙の色：真っ白ではなく、目に優しいクリームホワイト */
-  /* background-color: #fdfbf7;
-  
-  /* 紙の質感を出すための微細なノイズ（オプション） */
-  /* background-image: linear-gradient(#e8e4dc 1px, transparent 1px), linear-gradient(90deg, #e8e4dc 1px, transparent 1px);
-  background-size: 40px 40px;
-  background-position: -1px -1px; */ 
+  background-color: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
 
-  /* サイズ設定：横長の長方形 */
   width: 100%;
-  max-width: 900px; /* 程よい広さ */
-  min-height: 250px; /* 最低限の高さ */
+  max-width: 900px;
+  max-height: 85vh;
+  min-height: 300px;
   height: auto;
   
-  /* 紙の立体感（影） */
-  /* box-shadow: 
-    0 1px 1px rgba(0,0,0,0.15), 
-    0 10px 0 -5px #eee, 
-    0 10px 1px -4px rgba(0,0,0,0.15), 
-    0 20px 0 -10px #eee, 
-    0 20px 1px -9px rgba(0,0,0,0.15),
-    0 25px 45px rgba(0,0,0,0.5); 全体の深い影 */
+  overflow-y: auto;
+  overflow-x: hidden;
 
-  /* 余白 */
-  padding: 1rem 1rem;
-  
-  /* 形 */
-  /* border: 1px solid #dcd6ce;
-  border-radius: 2px; 角を少しだけ丸く（紙っぽく） 
-  box-sizing: border-box;
-   */
-  /* 相対配置（内部要素のため） */
-  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+
+  padding: 3rem 2rem;
   position: relative;
+  box-sizing: border-box;
+  
+  margin-top: 10px;
 }
 
-/* 紙の四隅に装飾（テープのようなアクセント） */
-#root > div::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 8px;
-  background-color: rgba(189, 87, 87, 0.7); /* 赤いライン */
-  opacity: 0.8;
-}
+/* スクロールバー装飾 */
+#root > div::-webkit-scrollbar { width: 8px; }
+#root > div::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.3); border-radius: 4px; }
+#root > div::-webkit-scrollbar-thumb { background: rgba(74, 59, 42, 0.4); border-radius: 4px; }
+#root > div::-webkit-scrollbar-thumb:hover { background: rgba(74, 59, 42, 0.6); }
 
-/* 見出し */
+/* その他装飾 */
 h1, h2, h3 {
   color: #4a3b2a;
-  border-bottom: 2px solid #8c7853; /* 金色のライン */
+  border-bottom: 2px solid rgba(74, 59, 42, 0.3);
   padding-bottom: 10px;
   margin-top: 0;
   margin-bottom: 30px;
-  text-align: center; /* タイトルは中央寄せ */
+  text-align: center;
   letter-spacing: 0.1em;
 }
 
-/* リンク */
 a {
-  color: #bd5757; /* 朱色 */
+  color: #bd5757;
   text-decoration: none;
   border-bottom: 1px dashed #bd5757;
   transition: all 0.3s;
 }
 a:hover {
   background-color: rgba(189, 87, 87, 0.1);
+  color: #a04040;
 }
 
-/* 入力欄のデザイン：紙に書き込むスタイル */
-input[type="text"],
-input[type="password"],
-textarea,
-select {
+input[type="text"], input[type="password"], textarea, select {
   width: 100%;
   box-sizing: border-box;
-  
-  /* 枠線を消して下線だけにする */
   border: none;
-  border-bottom: 2px solid #ccc;
-  
-  background-color: transparent; /* 背景透明 */
-  padding: 10px 5px;
+  border-bottom: 2px solid #8c7853;
+  background-color: rgba(255, 255, 255, 0.5);
+  padding: 10px 10px;
   font-size: 1.1em;
   font-family: inherit;
   color: #333;
+  font-weight: bold;
   margin-bottom: 20px;
-  transition: border-color 0.3s;
+  border-radius: 4px;
+  transition: all 0.3s;
 }
-
 input:focus, textarea:focus, select:focus {
   outline: none;
-  border-bottom-color: #8c7853; /* フォーカス時は金色 */
-  background-color: rgba(140, 120, 83, 0.05);
+  border-bottom-color: #5d4a35;
+  background-color: rgba(255, 255, 255, 0.9);
 }
+::placeholder { color: #777; font-size: 0.9em; font-weight: normal; }
 
-/* プレースホルダーの色 */
-::placeholder {
-  color: #aaa;
-  font-size: 0.9em;
-}
-
-/* ボタンのデザイン：スタンプ風 */
 button {
   font-family: inherit;
   font-size: 1em;
   font-weight: bold;
   letter-spacing: 0.1em;
-  
-  background-color: #4a3b2a; /* 濃い茶色 */
+  background-color: #4a3b2a;
   color: #fff;
-  
   border: none;
   padding: 12px 30px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.2);
   transition: transform 0.1s, box-shadow 0.1s;
-  
-  /* 中央寄せ */
   display: block;
   margin: 20px auto 0;
   min-width: 200px;
 }
-
 button:hover {
   background-color: #5d4a35;
   transform: translateY(-2px);
-  box-shadow: 0 6px 10px rgba(0,0,0,0.25);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.3);
 }
-
-button:active {
-  transform: translateY(1px);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
 button:disabled {
   background-color: #ccc;
   color: #666;
@@ -182,23 +143,17 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* 地図コンテナ：写真のような枠をつける */
-.map-container, 
-#root > div > div > div[style*="height"] {
-  border: 8px solid #fff; /* 白いフチ */
-  box-shadow: 0 2px 10px rgba(0,0,0,0.15); /* 影 */
-  transform: rotate(-1deg); /* 少しだけ傾けて手張り感を出す（好みで削除可） */
+.map-container, #root > div > div > div[style*="height"] {
+  border: 4px solid #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  border-radius: 4px;
   margin-bottom: 20px;
 }
 
-/* リストアイテム */
-ul {
-  list-style: none;
-  padding: 0;
-}
+ul { list-style: none; padding: 0; }
 li {
-  padding: 10px;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
+  padding: 15px 10px;
+  border-bottom: 1px solid rgba(74, 59, 42, 0.1);
   display: flex;
   align-items: center;
   gap: 10px;

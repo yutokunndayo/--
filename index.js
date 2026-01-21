@@ -127,4 +127,80 @@ app.post('/api/pilgrimages', upload.any(), (req, res) => {
 });
 
 const PORT = 3000;
+// ... (既存のコード) ...
+
+// ★追加: 特定ユーザーの投稿マップを取得するAPI
+app.get('/api/users/:id/pilgrimages', (req, res) => {
+  const userId = req.params.id;
+  const sql = `SELECT p.id, p.title, p.image_path, w.title AS work FROM pilgrimages p JOIN works w ON p.work_id = w.id WHERE p.user_id = ? ORDER BY p.id DESC`;
+  db.all(sql, [userId], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'DBエラー' });
+    res.json(rows);
+  });
+});
+
+// ★追加: マップ更新API (PUT)
+app.put('/api/pilgrimages/:id', upload.any(), (req, res) => {
+  const mapId = req.params.id;
+  let spots = [];
+  try { spots = JSON.parse(req.body.spots || '[]'); } catch (e) {}
+  const { workTitle, mapTitle, userId } = req.body;
+  
+  // 新しいカバー画像があればそれを使う、なければ既存のまま（何もしない or クライアントからパスを送る手もあるが今回は更新時のみ上書き）
+  const coverFile = req.files.find(f => f.fieldname === 'coverImage');
+  const coverImagePath = coverFile ? coverFile.path.replace(/\\/g, '/') : undefined;
+
+  db.serialize(() => {
+    // 1. 作品テーブルの確認・更新
+    db.get('SELECT id FROM works WHERE title = ?', [workTitle], function(err, row) {
+      if (row) updatePilgrimage(row.id);
+      else db.run('INSERT INTO works (title) VALUES (?)', [workTitle], function(err) { updatePilgrimage(this.lastID); });
+    });
+
+    function updatePilgrimage(workId) {
+      // 2. 巡礼マップテーブルの更新
+      // 画像がアップロードされた場合のみ image_path を更新するSQLを組み立てる
+      let sql = 'UPDATE pilgrimages SET title = ?, work_id = ?';
+      let params = [mapTitle, workId];
+      
+      if (coverImagePath) {
+        sql += ', image_path = ?';
+        params.push(coverImagePath);
+      }
+      
+      sql += ' WHERE id = ?';
+      params.push(mapId);
+
+      db.run(sql, params, function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        // 3. スポットの更新（簡易実装：一度全削除して登録し直す）
+        // ※ 本来はIDを見てUPDATEすべきですが、画像管理の複雑さを避けるため作り直します
+        // ただし、画像を引き継ぐためにフロントエンドから既存の image_path を送ってもらう必要があります
+        db.run('DELETE FROM spots WHERE pilgrimage_id = ?', [mapId], function(err) {
+          if (err) return res.status(500).json({ error: err.message });
+          insertSpots(mapId);
+        });
+      });
+    }
+
+    function insertSpots(pilgrimageId) {
+      const stmt = db.prepare('INSERT INTO spots (pilgrimage_id, name, latitude, longitude, spot_order, nearby_info, image_path, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+      
+      spots.forEach((spot, index) => {
+        // 新しい画像ファイルがあるか確認
+        const spotFile = req.files.find(f => f.fieldname === `spotImage_${index}`); // indexはフロントエンドの配列順に依存
+        
+        // 新しいファイルがあればそのパス、なければ既存のパス(existingImagePath)を使う
+        let finalImagePath = spotFile ? spotFile.path.replace(/\\/g, '/') : (spot.existingImagePath || null);
+
+        stmt.run(pilgrimageId, spot.name, spot.lat, spot.lng, index + 1, spot.nearbyInfo || '', finalImagePath, spot.address || '');
+      });
+      
+      stmt.finalize(() => res.json({ message: '更新完了', pilgrimageId }));
+    }
+  });
+});
+
+// ... (既存の app.listen ...)
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

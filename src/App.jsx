@@ -5,6 +5,9 @@ import PostScreen from './PostScreen.jsx';
 import ViewScreen from './ViewScreen.jsx';
 import LoginScreen from './LoginScreen.jsx';
 import SelectionScreen from './SelectionScreen.jsx';
+// ★追加
+import MyPageScreen from './MyPageScreen.jsx';
+import EditScreen from './EditScreen.jsx';
 import NavBar from './NavBar.jsx';
 import './App.css';
 
@@ -26,6 +29,9 @@ function App() {
             <Route path="/home" element={<ProtectedRoute><HomeScreen /></ProtectedRoute>} />
             <Route path="/post" element={<ProtectedRoute><PostScreen /></ProtectedRoute>} />
             <Route path="/view/:pilgrimageId" element={<ProtectedRoute><ViewScreen /></ProtectedRoute>} />
+            {/* ★追加 */}
+            <Route path="/mypage" element={<ProtectedRoute><MyPageScreen /></ProtectedRoute>} />
+            <Route path="/edit/:pilgrimageId" element={<ProtectedRoute><EditScreen /></ProtectedRoute>} />
           </Routes>
         </div>
       </div> 
