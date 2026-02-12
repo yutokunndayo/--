@@ -1,82 +1,19 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
-
-const mapContainerStyle = {
-  width: '100%', height: '300px', marginTop: '10px', marginBottom: '20px', borderRadius: '4px', border: '1px solid #ccc'
-};
 
 function PostScreen() {
   const navigate = useNavigate();
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-  });
 
+  // 入力フォームの状態（スポット情報は削除）
   const [workTitle, setWorkTitle] = useState('');
   const [mapTitle, setMapTitle] = useState('');
   const [coverImage, setCoverImage] = useState(null);
-  const [spots, setSpots] = useState([]);
   
-  // 送信中かどうかを判定するフラグ
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [spotName, setSpotName] = useState('');
-  const [address, setAddress] = useState(''); 
-  const [spotLat, setSpotLat] = useState('');
-  const [spotLng, setSpotLng] = useState('');
-  const [nearbyInfo, setNearbyInfo] = useState('');
-  const [spotImage, setSpotImage] = useState(null);
-  const [map, setMap] = useState(null);
-
-  const onLoad = useCallback((mapInstance) => setMap(mapInstance), []);
-  const onUnmount = useCallback(() => setMap(null), []);
-
-  // 住所検索機能
-  const handleSearchAddress = () => {
-    if (!isLoaded || !address) return;
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ address: address }, (results, status) => {
-      if (status === 'OK' && results[0]) {
-        const location = results[0].geometry.location;
-        const lat = location.lat();
-        const lng = location.lng();
-        setSpotLat(lat);
-        setSpotLng(lng);
-        if (!spotName) setSpotName(address);
-        if (map) { map.panTo({ lat, lng }); map.setZoom(16); }
-      } else { alert('場所が見つかりませんでした: ' + status); }
-    });
-  };
-
-  const handleMapClick = (e) => {
-    setSpotLat(e.latLng.lat());
-    setSpotLng(e.latLng.lng());
-  };
-
-  const handleAddSpot = () => {
-    if (!spotName) { alert('「場所名」を入力してください'); return; }
-    if (!spotLat || !spotLng) { alert('「住所検索」するか、地図をクリックしてピンを立ててください'); return; }
-
-    const newSpot = {
-      id: spots.length + 1, 
-      name: spotName, 
-      address: address,
-      lat: parseFloat(spotLat), 
-      lng: parseFloat(spotLng),
-      nearbyInfo: nearbyInfo, 
-      imageFile: spotImage,
-    };
-
-    setSpots([...spots, newSpot]);
-    setSpotName(''); setAddress(''); setSpotLat(''); setSpotLng('');
-    setNearbyInfo(''); setSpotImage(null);
-  };
 
   // 保存ボタン
   const handleSubmitMap = async (e) => {
     e.preventDefault();
-    if (spots.length === 0) { alert("スポットが1つもありません"); return; }
     if (isSubmitting) return;
     setIsSubmitting(true);
 
@@ -85,24 +22,26 @@ function PostScreen() {
     formData.append('mapTitle', mapTitle);
     if (coverImage) formData.append('coverImage', coverImage);
 
-    // ★作成者のIDを追加
     const userId = localStorage.getItem('userId');
     if (userId) formData.append('userId', userId);
 
-    const spotsData = spots.map(s => ({
-      name: s.name, address: s.address, lat: s.lat, lng: s.lng, nearbyInfo: s.nearbyInfo
-    }));
-    formData.append('spots', JSON.stringify(spotsData));
-
-    spots.forEach((spot, index) => {
-      if (spot.imageFile) formData.append(`spotImage_${index}`, spot.imageFile);
-    });
+    // スポットは空の配列として送信（バックエンドのエラーを防ぐため）
+    formData.append('spots', JSON.stringify([]));
 
     try {
       const response = await fetch('http://localhost:3000/api/pilgrimages', { method: 'POST', body: formData });
       if (!response.ok) throw new Error(`サーバーエラー: ${response.status}`);
-      alert('保存しました！');
-      navigate('/home');
+      
+      const data = await response.json();
+      alert('タイトルを作成しました！次はスポットを登録しましょう。');
+      
+      // 作成完了後、そのマップの詳細画面へ移動して、すぐにスポット追加できるようにする
+      if (data.pilgrimageId) {
+        navigate(`/view/${data.pilgrimageId}`);
+      } else {
+        navigate('/home');
+      }
+
     } catch (err) { 
       console.error(err);
       alert(`保存失敗: ${err.message}`); 
@@ -112,116 +51,74 @@ function PostScreen() {
   };
 
   return (
-    <div>
-      <h2>聖地巡礼マップを作成する</h2>
-      <form onSubmit={handleSubmitMap}>
+    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
+      <h2 style={{ textAlign: 'center', color: '#4a3a2a' }}>新しいタイトル（枠）を作成</h2>
+      <p style={{ textAlign: 'center', marginBottom: '30px', color: '#666' }}>
+        みんなで作り上げる聖地巡礼マップの<br />
+        新しい「タイトル」を作成します。
+      </p>
+
+      <form onSubmit={handleSubmitMap} style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '10px', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
         <div style={{ marginBottom: '1.5rem' }}>
-          <label>作品名:</label>
-          <input type="text" value={workTitle} onChange={(e) => setWorkTitle(e.target.value)} required placeholder="例: 作品A" />
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#4a3a2a' }}>
+            作品名 <span style={{ color: '#e07a5f', fontSize: '0.8em' }}>(必須)</span>
+          </label>
+          <input 
+            type="text" 
+            value={workTitle} 
+            onChange={(e) => setWorkTitle(e.target.value)} 
+            required 
+            placeholder="例: 君の名は。" 
+            style={{ width: '100%', padding: '12px', fontSize: '1em', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+          />
         </div>
+
         <div style={{ marginBottom: '1.5rem' }}>
-          <label>マップのタイトル:</label>
-          <input type="text" value={mapTitle} onChange={(e) => setMapTitle(e.target.value)} required placeholder="例: 東京聖地巡礼" />
-        </div>
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label>カバー画像:</label>
-          <input type="file" accept="image/*" onChange={(e) => setCoverImage(e.target.files[0])} style={{ border: 'none' }} />
-        </div>
-
-        <hr />
-        <h3>聖地スポットを追加</h3>
-        
-        <div style={{ marginBottom: '1rem', backgroundColor: '#e6dac8', padding: '10px', borderRadius: '4px' }}>
-          <label style={{display:'block', marginBottom:'5px', fontSize:'0.9em'}}>1. 住所検索 & 位置調整</label>
-          <div style={{ display: 'flex', gap: '10px', marginBottom:'10px' }}>
-            <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="例: 東京タワー" style={{ flexGrow: 1 }} />
-            <button 
-              type="button" 
-              onClick={handleSearchAddress} 
-              disabled={!isLoaded}
-              style={{ 
-                backgroundColor: isLoaded ? '#8c7853' : '#ccc', 
-                color: '#fff', 
-                cursor: isLoaded ? 'pointer' : 'not-allowed'
-              }}
-            >
-              {isLoaded ? "検索" : "読込中..."}
-            </button>
-          </div>
-          
-          {isLoaded ? (
-            <GoogleMap
-              mapContainerStyle={mapContainerStyle}
-              center={spotLat ? { lat: parseFloat(spotLat), lng: parseFloat(spotLng) } : { lat: 35.689, lng: 139.692 }}
-              zoom={spotLat ? 12 : 10}
-              onLoad={onLoad} 
-              onUnmount={onUnmount}
-              onClick={handleMapClick}
-            >
-              {spotLat && spotLng && (
-                <Marker 
-                  position={{ lat: parseFloat(spotLat), lng: parseFloat(spotLng) }} 
-                  draggable={true} 
-                  onDragEnd={(e)=>{setSpotLat(e.latLng.lat()); setSpotLng(e.latLng.lng());}} 
-                />
-              )}
-            </GoogleMap>
-          ) : (
-            <div style={{...mapContainerStyle, display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#eee'}}>
-              地図を読み込み中...
-            </div>
-          )}
-          <p style={{fontSize:'0.8em', color:'#666'}}>※ピンをドラッグするか、地図をクリックして微調整できます。</p>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#4a3a2a' }}>
+            マップのタイトル <span style={{ color: '#e07a5f', fontSize: '0.8em' }}>(必須)</span>
+          </label>
+          <input 
+            type="text" 
+            value={mapTitle} 
+            onChange={(e) => setMapTitle(e.target.value)} 
+            required 
+            placeholder="例: 飛騨古川 聖地巡礼マップ" 
+            style={{ width: '100%', padding: '12px', fontSize: '1em', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+          />
         </div>
 
-        {/* ★ここが復活・修正した箇所です */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label>2. スポット詳細</label>
-          <input type="text" value={spotName} onChange={(e) => setSpotName(e.target.value)} placeholder="場所名 (必須)" style={{marginBottom:'10px'}} />
-          <textarea value={nearbyInfo} onChange={(e) => setNearbyInfo(e.target.value)} placeholder="メモ・おすすめ情報" style={{ height: '60px', marginBottom:'10px' }} />
-          <input type="file" accept="image/*" key={spotImage ? spotImage.name : 'reset'} onChange={(e) => setSpotImage(e.target.files[0])} style={{ border: 'none', fontSize: '0.9em' }} />
+        <div style={{ marginBottom: '2rem' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#4a3a2a' }}>
+            カバー画像 <span style={{ color: '#999', fontSize: '0.8em' }}>(任意)</span>
+          </label>
+          <input 
+            type="file" 
+            accept="image/*" 
+            onChange={(e) => setCoverImage(e.target.files[0])} 
+            style={{ width: '100%', padding: '5px' }} 
+          />
+          <p style={{ fontSize: '0.85em', color: '#888', marginTop: '5px' }}>
+            ※一覧画面やヘッダーに表示されます。
+          </p>
         </div>
-        
-        <button type="button" onClick={handleAddSpot} style={{ width: '100%', marginBottom: '20px' }}>↓ このスポットを追加</button>
 
-        <h4>追加済み: {spots.length}件</h4>
-        <ul>
-          {spots.map(s => (
-            <li key={s.id} style={{marginBottom:'5px', display:'flex', alignItems:'center'}}>
-              <strong>{s.name}</strong> 
-              
-              {/* ★変更: 画像があれば、カメラマークではなくサムネイルを表示 */}
-              {s.imageFile ? (
-                <img 
-                  src={URL.createObjectURL(s.imageFile)} 
-                  alt="プレビュー" 
-                  style={{height: '40px', marginLeft: '10px', borderRadius: '4px', border:'1px solid #ccc'}} 
-                />
-              ) : (
-                <span style={{fontSize:'0.8em', color:'#999', marginLeft:'5px'}}>(画像なし)</span>
-              )}
-
-              <span style={{fontSize:'0.8em', color:'#666', marginLeft:'10px'}}>
-                ({s.address || '住所なし'})
-              </span>
-            </li>
-          ))}
-        </ul>
-        
-        <hr />
         <button 
           type="submit" 
-          disabled={spots.length === 0 || isSubmitting} 
+          disabled={isSubmitting} 
           style={{ 
             padding: '15px', 
             fontSize: '1.1em',
             width: '100%',
-            backgroundColor: isSubmitting ? '#e07a5f' : '#4CAF50', 
+            backgroundColor: isSubmitting ? '#ccc' : '#8c7853', 
             color: 'white',
-            cursor: isSubmitting ? 'wait' : 'pointer'
+            border: 'none',
+            borderRadius: '6px',
+            cursor: isSubmitting ? 'wait' : 'pointer',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
           }}
         >
-          {isSubmitting ? '送信中... (そのままお待ちください)' : '保存する'}
+          {isSubmitting ? '作成中...' : 'このタイトルを作成する'}
         </button>
       </form>
     </div>

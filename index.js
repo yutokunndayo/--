@@ -201,7 +201,31 @@ app.put('/api/pilgrimages/:id', upload.any(), (req, res) => {
     }
   });
 });
+// ★追加: 既存のマップに新しいスポットを1つ追加するAPI
+// ViewScreen.jsx の投稿フォームから呼び出されます
+app.post('/api/pilgrimages/:id/spots', upload.single('spotImage'), (req, res) => {
+  const pilgrimageId = req.params.id;
+  const { name, address, nearbyInfo, lat, lng } = req.body;
+  
+  const spotFile = req.file;
+  const spotImagePath = spotFile ? spotFile.path.replace(/\\/g, '/') : null;
 
+  db.serialize(() => {
+    // 現在の最後の順番(spot_order)を取得して、その次に追加する
+    db.get('SELECT MAX(spot_order) as maxOrder FROM spots WHERE pilgrimage_id = ?', [pilgrimageId], (err, row) => {
+      if (err) return res.status(500).json({ error: 'DBエラー' });
+      
+      const nextOrder = (row && row.maxOrder) ? row.maxOrder + 1 : 1;
+      
+      const stmt = db.prepare('INSERT INTO spots (pilgrimage_id, name, latitude, longitude, spot_order, nearby_info, image_path, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+      stmt.run(pilgrimageId, name, lat, lng, nextOrder, nearbyInfo || '', spotImagePath, address || '', function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.status(201).json({ message: 'スポット追加成功', spotId: this.lastID });
+      });
+      stmt.finalize();
+    });
+  });
+});
 // ... (既存の app.listen ...)
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
 //kkkkkk

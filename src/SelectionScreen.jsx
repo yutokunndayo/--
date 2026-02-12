@@ -6,15 +6,14 @@ function SelectionScreen() {
     <div style={{ textAlign: 'center', width: '100%', padding: '10px 0' }}>
       <h2 style={{ color: '#4a3a2a', marginBottom: '40px' }}>何をしますか？</h2>
       
-      {/* ボタンのコンテナ */}
       <div style={{ 
         display: 'flex', 
-        flexDirection: 'row',      /* 横並び */
+        flexDirection: 'row',
         justifyContent: 'center',  
-        alignItems: 'stretch',     /* 高さを揃える */
+        alignItems: 'stretch',
         gap: '20px',               
         width: '100%',             
-        flexWrap: 'wrap'           /* 画面が狭いときは折り返す */
+        flexWrap: 'wrap'
       }}>
         
         {/* 1. 探すボタン */}
@@ -44,7 +43,7 @@ function SelectionScreen() {
           </div>
         </Link>
 
-        {/* 2. 作るボタン */}
+        {/* 2. 作るボタン（ここを変更） */}
         <Link to="/post" style={{ textDecoration: 'none', flex: '1 1 200px', maxWidth: '300px' }}>
           <div 
             style={{ 
@@ -65,13 +64,14 @@ function SelectionScreen() {
             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
             onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            <div style={{ fontSize: '3em', marginBottom: '10px' }}>✏️</div>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.3em' }}>マップを作る</h3>
-            <p style={{ margin: 0, color: '#666', fontSize: '0.9em' }}>自分の足跡を記録する</p>
+            {/* アイコンも変更しても良いですがそのままでもOK */}
+            <div style={{ fontSize: '3em', marginBottom: '10px' }}>✨</div> 
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.3em' }}>タイトルを作る</h3>
+            <p style={{ margin: 0, color: '#666', fontSize: '0.9em' }}>新しい聖地の枠を作る</p>
           </div>
         </Link>
 
-        {/* 3. マイページボタン（★追加） */}
+        {/* 3. マイページボタン */}
         <Link to="/mypage" style={{ textDecoration: 'none', flex: '1 1 200px', maxWidth: '300px' }}>
           <div 
             style={{ 
@@ -100,7 +100,6 @@ function SelectionScreen() {
 
       </div>
       
-      {/* ログアウトなどのリンクを下に小さく配置 */}
       <div style={{ marginTop: '40px' }}>
          <Link to="/" style={{ color: '#8c7853', fontSize: '0.9em', borderBottom: '1px solid' }}>ログアウト</Link>
       </div>

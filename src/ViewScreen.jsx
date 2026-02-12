@@ -4,7 +4,7 @@ import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-map
 
 const mapContainerStyle = {
   width: '100%',
-  height: '400px',
+  height: '500px',
   borderRadius: '8px',
   border: '4px solid #fff',
   boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
@@ -15,15 +15,36 @@ function ViewScreen() {
   const [mapData, setMapData] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // マップ上のクリック用
+  // マップ上のクリック用（既存スポットの表示）
   const [selectedSpot, setSelectedSpot] = useState(null);
+
+  // 新規スポット投稿用の状態
+  const [isAddingMode, setIsAddingMode] = useState(false);
+  const [newSpot, setNewSpot] = useState({
+    name: '',
+    address: '',
+    nearbyInfo: '',
+    lat: null,
+    lng: null,
+    image: null
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // ★住所検索中のローディング状態
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+
+  // ログイン状態の確認
+  const isLoggedIn = !!localStorage.getItem('token');
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+    // ★Geocodingを使うためにライブラリを追加する場合もありますが、
+    // 基本的なGeocoding機能は標準の 'google.maps.Geocoder' で利用可能です。
   });
 
-  useEffect(() => {
+  // データ取得
+  const fetchMapData = () => {
     fetch(`http://localhost:3000/api/pilgrimages/${pilgrimageId}`)
       .then(res => {
         if (!res.ok) throw new Error('Network response was not ok');
@@ -37,6 +58,10 @@ function ViewScreen() {
         console.error(err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchMapData();
   }, [pilgrimageId]);
 
   // Google Mapのロード時の調整
@@ -48,9 +73,8 @@ function ViewScreen() {
     setMap(null);
   }, []);
 
-  // データ読み込み完了時に、全スポットが収まるようにズーム調整
   useEffect(() => {
-    if (map && mapData && mapData.spots.length > 0) {
+    if (map && mapData && mapData.spots.length > 0 && !isAddingMode) {
       const bounds = new window.google.maps.LatLngBounds();
       mapData.spots.forEach(spot => {
         bounds.extend({ lat: spot.latitude, lng: spot.longitude });
@@ -59,13 +83,106 @@ function ViewScreen() {
     }
   }, [map, mapData]);
 
+  // マップクリック時の処理（投稿モード時のみ位置を設定）
+  const handleMapClick = (e) => {
+    if (isAddingMode) {
+      setNewSpot({
+        ...newSpot,
+        lat: e.latLng.lat(),
+        lng: e.latLng.lng()
+      });
+    }
+  };
+
+  // ★追加: 住所から位置情報を検索する機能
+  const handleSearchAddress = () => {
+    if (!isLoaded || !newSpot.address) return;
+    setIsSearchingAddress(true);
+
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ address: newSpot.address }, (results, status) => {
+      setIsSearchingAddress(false);
+      
+      if (status === 'OK' && results[0]) {
+        const location = results[0].geometry.location;
+        const lat = location.lat();
+        const lng = location.lng();
+        
+        // 名前が未入力なら、住所の一部を仮で入れる
+        let updatedName = newSpot.name;
+        if (!updatedName) {
+           // 住所の最初の部分などを簡易的に入れる（必要に応じて調整）
+           updatedName = newSpot.address; 
+        }
+
+        setNewSpot({ 
+          ...newSpot, 
+          lat: lat, 
+          lng: lng,
+          name: updatedName
+        });
+
+        // マップをその場所に移動
+        if (map) {
+          map.panTo({ lat, lng });
+          map.setZoom(16); // ズームイン
+        }
+      } else {
+        alert('住所が見つかりませんでした: ' + status);
+      }
+    });
+  };
+
+  // スポット投稿処理
+  const handleAddSpotSubmit = async (e) => {
+    e.preventDefault();
+    if (!newSpot.lat || !newSpot.lng) {
+      alert('「住所検索」ボタンを押すか、地図をクリックしてピンを立ててください');
+      return;
+    }
+    if (!newSpot.name) {
+      alert('スポット名を入力してください');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const formData = new FormData();
+    formData.append('name', newSpot.name);
+    formData.append('address', newSpot.address);
+    formData.append('nearbyInfo', newSpot.nearbyInfo);
+    formData.append('lat', newSpot.lat);
+    formData.append('lng', newSpot.lng);
+    if (newSpot.image) {
+      formData.append('spotImage', newSpot.image);
+    }
+
+    try {
+      const res = await fetch(`http://localhost:3000/api/pilgrimages/${pilgrimageId}/spots`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error('投稿に失敗しました');
+
+      alert('スポットを追加しました！');
+      setIsAddingMode(false);
+      setNewSpot({ name: '', address: '', nearbyInfo: '', lat: null, lng: null, image: null });
+      fetchMapData(); 
+    } catch (err) {
+      console.error(err);
+      alert('エラーが発生しました: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (loading) return <div style={{textAlign:'center', marginTop:'50px'}}>読み込み中...</div>;
   if (!mapData) return <div style={{textAlign:'center', marginTop:'50px'}}>データが見つかりませんでした</div>;
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '100px' }}>
       {/* ヘッダー部分 */}
-      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '30px', borderBottom: '2px dashed #8c7853', paddingBottom: '20px' }}>
         <span style={{ 
           display: 'inline-block', 
           backgroundColor: '#8c7853', 
@@ -77,8 +194,122 @@ function ViewScreen() {
         }}>
           {mapData.workTitle}
         </span>
-        <h2 style={{ fontSize: '2rem', margin: '10px 0', color: '#4a3b2a' }}>{mapData.mapTitle}</h2>
+        <h2 style={{ fontSize: '2.5rem', margin: '10px 0', color: '#4a3b2a' }}>{mapData.mapTitle}</h2>
+        <p style={{ color: '#666' }}>みんなで作る聖地巡礼マップ</p>
+        
+        {isLoggedIn ? (
+          !isAddingMode ? (
+            <button 
+              onClick={() => setIsAddingMode(true)}
+              style={{
+                backgroundColor: '#e07a5f', color: 'white', border: 'none', padding: '10px 20px',
+                borderRadius: '5px', fontSize: '1rem', cursor: 'pointer', marginTop: '10px'
+              }}
+            >
+              📍 ここに新しいスポットを追加する
+            </button>
+          ) : (
+            <button 
+              onClick={() => setIsAddingMode(false)}
+              style={{
+                backgroundColor: '#999', color: 'white', border: 'none', padding: '10px 20px',
+                borderRadius: '5px', fontSize: '1rem', cursor: 'pointer', marginTop: '10px'
+              }}
+            >
+              キャンセル
+            </button>
+          )
+        ) : (
+          <p style={{fontSize: '0.9rem', color: '#e07a5f'}}>ログインするとスポットを追加できます</p>
+        )}
       </div>
+
+      {/* スポット追加フォーム */}
+      {isAddingMode && (
+        <div style={{
+          backgroundColor: '#fdf6e3', padding: '20px', borderRadius: '8px', 
+          border: '2px solid #e07a5f', marginBottom: '20px'
+        }}>
+          <h3 style={{marginTop: 0, color: '#e07a5f'}}>新規スポットの追加</h3>
+          <p style={{fontSize: '0.9rem'}}>住所を入力して検索するか、地図をクリックして場所を指定してください。</p>
+          
+          <form onSubmit={handleAddSpotSubmit}>
+            {/* ★住所検索エリア */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{display:'block', marginBottom:'5px', fontWeight:'bold', color:'#555'}}>住所から場所を検索:</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  type="text" 
+                  placeholder="例: 東京都千代田区1-1" 
+                  value={newSpot.address} 
+                  onChange={e => setNewSpot({...newSpot, address: e.target.value})}
+                  onKeyDown={(e) => {
+                    if(e.key === 'Enter') { 
+                      e.preventDefault(); // フォーム送信を防ぐ
+                      handleSearchAddress(); 
+                    }
+                  }}
+                  style={{ flexGrow: 1, padding: '8px' }}
+                />
+                <button 
+                  type="button" 
+                  onClick={handleSearchAddress}
+                  disabled={isSearchingAddress || !newSpot.address}
+                  style={{
+                    backgroundColor: isSearchingAddress ? '#ccc' : '#8c7853',
+                    color: '#fff', border: 'none', padding: '0 20px', borderRadius: '4px', cursor: 'pointer'
+                  }}
+                >
+                  {isSearchingAddress ? '検索中...' : '検索'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px', marginBottom:'10px' }}>
+               <label style={{fontWeight:'bold', color:'#555'}}>スポット名:</label>
+              <input 
+                type="text" 
+                placeholder="場所の名前 (必須)" 
+                value={newSpot.name} 
+                onChange={e => setNewSpot({...newSpot, name: e.target.value})}
+                required
+                style={{padding: '8px'}}
+              />
+            </div>
+
+            <textarea 
+              placeholder="説明やコメント" 
+              value={newSpot.nearbyInfo} 
+              onChange={e => setNewSpot({...newSpot, nearbyInfo: e.target.value})}
+              style={{width: '100%', padding: '8px', marginTop: '10px', height: '60px'}}
+            />
+            <div style={{marginTop: '10px'}}>
+              <label>写真: </label>
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={e => setNewSpot({...newSpot, image: e.target.files[0]})}
+              />
+            </div>
+            
+            <div style={{marginTop: '10px', fontWeight: 'bold', color: newSpot.lat ? '#4CAF50' : '#f00'}}>
+              位置情報: {newSpot.lat ? 'OK (設定済み)' : '住所を検索するか、地図をクリックしてください'}
+            </div>
+            
+            <button 
+              type="submit" 
+              disabled={isSubmitting || !newSpot.lat}
+              style={{
+                width: '100%', padding: '10px', marginTop: '15px',
+                backgroundColor: isSubmitting ? '#ccc' : '#e07a5f',
+                color: 'white', border: 'none', borderRadius: '4px', fontSize: '1.1rem', cursor: 'pointer'
+              }}
+            >
+              {isSubmitting ? '送信中...' : 'このスポットを投稿する'}
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Google Map */}
       <div style={{ marginBottom: '40px' }}>
@@ -86,8 +317,13 @@ function ViewScreen() {
           <GoogleMap
             mapContainerStyle={mapContainerStyle}
             zoom={10}
+            center={mapData.spots.length > 0 ? {lat: mapData.spots[0].latitude, lng: mapData.spots[0].longitude} : {lat: 35.689, lng: 139.692}}
             onLoad={onLoad}
             onUnmount={onUnmount}
+            onClick={handleMapClick}
+            options={{
+              draggableCursor: isAddingMode ? 'crosshair' : '',
+            }}
           >
             {mapData.spots.map(spot => (
               <Marker
@@ -101,6 +337,16 @@ function ViewScreen() {
                 }}
               />
             ))}
+
+            {/* 新規投稿用のマーカー（プレビュー） */}
+            {isAddingMode && newSpot.lat && (
+              <Marker
+                position={{ lat: newSpot.lat, lng: newSpot.lng }}
+                icon={{
+                  url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png" 
+                }}
+              />
+            )}
 
             {selectedSpot && (
               <InfoWindow
@@ -120,7 +366,7 @@ function ViewScreen() {
       {/* スポット詳細リスト */}
       <div>
         <h3 style={{ borderBottom: '2px solid #8c7853', paddingBottom: '10px', color: '#4a3b2a' }}>
-          📍 巡礼スポット一覧
+          📍 みんなの投稿スポット一覧
         </h3>
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {mapData.spots.map((spot, index) => (
@@ -132,7 +378,6 @@ function ViewScreen() {
               padding: '15px',
               border: '1px solid rgba(255,255,255,0.8)'
             }}>
-              {/* 番号 */}
               <div style={{ 
                 marginRight: '20px', 
                 fontSize: '1.5rem', 
@@ -143,7 +388,6 @@ function ViewScreen() {
                 {index + 1}.
               </div>
 
-              {/* 内容 */}
               <div style={{ flex: 1 }}>
                 <h4 style={{ margin: '0 0 10px 0', fontSize: '1.3rem', color: '#4a3b2a' }}>
                   {spot.name}
@@ -169,26 +413,22 @@ function ViewScreen() {
                   </p>
                 )}
 
-                {/* ★追加: Google Mapsで開くボタン */}
                 <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${spot.latitude},${spot.longitude}`}
+                  href={`http://maps.google.com/maps?q=${spot.latitude},${spot.longitude}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
                     textDecoration: 'none',
-                    backgroundColor: '#4285F4', // Google Mapっぽい青、またはテーマカラーの #8c7853 でもOK
+                    backgroundColor: '#4285F4',
                     color: '#fff',
                     padding: '8px 16px',
                     borderRadius: '20px',
                     fontSize: '0.9rem',
                     fontWeight: 'bold',
-                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-                    transition: 'opacity 0.2s'
+                    marginTop: '10px'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
                   🌏 Google Mapsで開く
                 </a>
