@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 function MyPageScreen() {
   const [myMaps, setMyMaps] = useState([]);
-  const [mySpots, setMySpots] = useState([]); // ★追加: 自分のスポット用
+  const [mySpots, setMySpots] = useState([]); // 自分のスポット
   const [loading, setLoading] = useState(true);
   
   const userId = localStorage.getItem('userId');
@@ -12,9 +12,8 @@ function MyPageScreen() {
   useEffect(() => {
     if (!userId) return;
 
-    // マップの取得
+    // マップとスポットの両方を取得
     const fetchMaps = fetch(`http://localhost:3000/api/users/${userId}/pilgrimages`).then(res => res.json());
-    // スポットの取得 (★追加)
     const fetchSpots = fetch(`http://localhost:3000/api/users/${userId}/spots`).then(res => res.json());
 
     Promise.all([fetchMaps, fetchSpots])
@@ -29,9 +28,9 @@ function MyPageScreen() {
       });
   }, [userId]);
 
-  // マップの削除
+  // マップ削除
   const handleDeleteMap = async (id) => {
-    if (!window.confirm('本当にマップを削除しますか？\n（含まれるスポットも削除される場合があります）')) return;
+    if (!window.confirm('本当にマップを削除しますか？')) return;
     try {
       const res = await fetch(`http://localhost:3000/api/pilgrimages/${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -41,7 +40,7 @@ function MyPageScreen() {
     } catch (err) { console.error(err); }
   };
 
-  // ★追加: スポットの削除
+  // ★スポット削除
   const handleDeleteSpot = async (id) => {
     if (!window.confirm('本当にこのスポットを削除しますか？')) return;
     try {

@@ -10,11 +10,17 @@ const mapContainerStyle = {
   boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
 };
 
+// デフォルトの中心位置（新宿）
+const DEFAULT_CENTER = { lat: 35.689, lng: 139.692 };
+
 function ViewScreen() {
   const { pilgrimageId } = useParams();
   const [mapData, setMapData] = useState(null);
   const [loading, setLoading] = useState(true);
   
+  // ★地図の中心位置を管理するState
+  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
+
   // マップ上のクリック用（既存スポットの表示）
   const [selectedSpot, setSelectedSpot] = useState(null);
 
@@ -51,6 +57,12 @@ function ViewScreen() {
       })
       .then(data => {
         setMapData(data);
+        
+        // ★データ取得時に、最初のスポットがあればそこを中心にする
+        if (data.spots && data.spots.length > 0) {
+          setMapCenter({ lat: data.spots[0].latitude, lng: data.spots[0].longitude });
+        }
+        
         setLoading(false);
       })
       .catch(err => {
@@ -72,6 +84,7 @@ function ViewScreen() {
     setMap(null);
   }, []);
 
+  // 初期ロード時の範囲調整（投稿モードでない時のみ）
   useEffect(() => {
     if (map && mapData && mapData.spots.length > 0 && !isAddingMode) {
       const bounds = new window.google.maps.LatLngBounds();
@@ -80,7 +93,7 @@ function ViewScreen() {
       });
       map.fitBounds(bounds);
     }
-  }, [map, mapData]);
+  }, [map, mapData]); // isAddingModeを外すことで、投稿モード切替時の不要な移動を防ぐ
 
   // マップクリック時の処理（投稿モード時のみ位置を設定）
   const handleMapClick = (e) => {
@@ -120,7 +133,10 @@ function ViewScreen() {
           name: updatedName
         });
 
-        // マップをその場所に移動
+        // ★重要: 地図の中心位置Stateを更新して、再レンダリング後も位置を維持する
+        setMapCenter({ lat, lng });
+
+        // 即座に移動
         if (map) {
           map.panTo({ lat, lng });
           map.setZoom(16);
@@ -151,7 +167,6 @@ function ViewScreen() {
     formData.append('lat', newSpot.lat);
     formData.append('lng', newSpot.lng);
     
-    // ★追加: 投稿者のIDを送る
     if (currentUserId) {
       formData.append('userId', currentUserId);
     }
@@ -321,7 +336,8 @@ function ViewScreen() {
           <GoogleMap
             mapContainerStyle={mapContainerStyle}
             zoom={10}
-            center={mapData.spots.length > 0 ? {lat: mapData.spots[0].latitude, lng: mapData.spots[0].longitude} : {lat: 35.689, lng: 139.692}}
+            // ★centerプロパティをState管理することで、再レンダリング時も位置を維持する
+            center={mapCenter}
             onLoad={onLoad}
             onUnmount={onUnmount}
             onClick={handleMapClick}
@@ -342,10 +358,12 @@ function ViewScreen() {
               />
             ))}
 
+            {/* 新規投稿用のマーカー（プレビュー） */}
             {isAddingMode && newSpot.lat && (
               <Marker
                 position={{ lat: newSpot.lat, lng: newSpot.lng }}
                 icon={{
+                  // ★有効なURLに変更
                   url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png" 
                 }}
               />
@@ -359,7 +377,6 @@ function ViewScreen() {
                 <div style={{ color: '#333', padding: '5px' }}>
                   <h3 style={{ margin: '0 0 5px 0', fontSize: '1.1rem' }}>{selectedSpot.name}</h3>
                   <p style={{ margin: 0, fontSize: '0.9rem' }}>{selectedSpot.address}</p>
-                  {/* InfoWindow内にも投稿者を表示 */}
                   <p style={{fontSize:'0.8rem', color:'#666', marginTop:'5px'}}>
                     投稿者: {selectedSpot.username || '匿名'}
                   </p>
@@ -400,7 +417,6 @@ function ViewScreen() {
                    <h4 style={{ margin: '0 0 5px 0', fontSize: '1.3rem', color: '#4a3b2a' }}>
                      {spot.name}
                    </h4>
-                   {/* ★追加: ユーザーネーム表示 */}
                    <span style={{ fontSize: '0.85rem', color: '#888', backgroundColor: '#f0f0f0', padding: '3px 8px', borderRadius: '10px' }}>
                      👤 {spot.username || '匿名ユーザー'}
                    </span>
