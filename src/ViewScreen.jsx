@@ -30,17 +30,16 @@ function ViewScreen() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // ★住所検索中のローディング状態
+  // 住所検索中のローディング状態
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
 
-  // ログイン状態の確認
+  // ログイン状態とユーザー情報の確認
   const isLoggedIn = !!localStorage.getItem('token');
+  const currentUserId = localStorage.getItem('userId');
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-    // ★Geocodingを使うためにライブラリを追加する場合もありますが、
-    // 基本的なGeocoding機能は標準の 'google.maps.Geocoder' で利用可能です。
   });
 
   // データ取得
@@ -94,7 +93,7 @@ function ViewScreen() {
     }
   };
 
-  // ★追加: 住所から位置情報を検索する機能
+  // 住所から位置情報を検索する機能
   const handleSearchAddress = () => {
     if (!isLoaded || !newSpot.address) return;
     setIsSearchingAddress(true);
@@ -111,7 +110,6 @@ function ViewScreen() {
         // 名前が未入力なら、住所の一部を仮で入れる
         let updatedName = newSpot.name;
         if (!updatedName) {
-           // 住所の最初の部分などを簡易的に入れる（必要に応じて調整）
            updatedName = newSpot.address; 
         }
 
@@ -125,7 +123,7 @@ function ViewScreen() {
         // マップをその場所に移動
         if (map) {
           map.panTo({ lat, lng });
-          map.setZoom(16); // ズームイン
+          map.setZoom(16);
         }
       } else {
         alert('住所が見つかりませんでした: ' + status);
@@ -152,6 +150,12 @@ function ViewScreen() {
     formData.append('nearbyInfo', newSpot.nearbyInfo);
     formData.append('lat', newSpot.lat);
     formData.append('lng', newSpot.lng);
+    
+    // ★追加: 投稿者のIDを送る
+    if (currentUserId) {
+      formData.append('userId', currentUserId);
+    }
+
     if (newSpot.image) {
       formData.append('spotImage', newSpot.image);
     }
@@ -234,7 +238,7 @@ function ViewScreen() {
           <p style={{fontSize: '0.9rem'}}>住所を入力して検索するか、地図をクリックして場所を指定してください。</p>
           
           <form onSubmit={handleAddSpotSubmit}>
-            {/* ★住所検索エリア */}
+            {/* 住所検索エリア */}
             <div style={{ marginBottom: '15px' }}>
               <label style={{display:'block', marginBottom:'5px', fontWeight:'bold', color:'#555'}}>住所から場所を検索:</label>
               <div style={{ display: 'flex', gap: '10px' }}>
@@ -245,7 +249,7 @@ function ViewScreen() {
                   onChange={e => setNewSpot({...newSpot, address: e.target.value})}
                   onKeyDown={(e) => {
                     if(e.key === 'Enter') { 
-                      e.preventDefault(); // フォーム送信を防ぐ
+                      e.preventDefault(); 
                       handleSearchAddress(); 
                     }
                   }}
@@ -338,7 +342,6 @@ function ViewScreen() {
               />
             ))}
 
-            {/* 新規投稿用のマーカー（プレビュー） */}
             {isAddingMode && newSpot.lat && (
               <Marker
                 position={{ lat: newSpot.lat, lng: newSpot.lng }}
@@ -356,6 +359,10 @@ function ViewScreen() {
                 <div style={{ color: '#333', padding: '5px' }}>
                   <h3 style={{ margin: '0 0 5px 0', fontSize: '1.1rem' }}>{selectedSpot.name}</h3>
                   <p style={{ margin: 0, fontSize: '0.9rem' }}>{selectedSpot.address}</p>
+                  {/* InfoWindow内にも投稿者を表示 */}
+                  <p style={{fontSize:'0.8rem', color:'#666', marginTop:'5px'}}>
+                    投稿者: {selectedSpot.username || '匿名'}
+                  </p>
                 </div>
               </InfoWindow>
             )}
@@ -389,9 +396,15 @@ function ViewScreen() {
               </div>
 
               <div style={{ flex: 1 }}>
-                <h4 style={{ margin: '0 0 10px 0', fontSize: '1.3rem', color: '#4a3b2a' }}>
-                  {spot.name}
-                </h4>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                   <h4 style={{ margin: '0 0 5px 0', fontSize: '1.3rem', color: '#4a3b2a' }}>
+                     {spot.name}
+                   </h4>
+                   {/* ★追加: ユーザーネーム表示 */}
+                   <span style={{ fontSize: '0.85rem', color: '#888', backgroundColor: '#f0f0f0', padding: '3px 8px', borderRadius: '10px' }}>
+                     👤 {spot.username || '匿名ユーザー'}
+                   </span>
+                </div>
                 
                 {spot.image_path && (
                   <div style={{ marginBottom: '10px' }}>

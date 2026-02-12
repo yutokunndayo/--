@@ -3,43 +3,124 @@ import { Link } from 'react-router-dom';
 
 function MyPageScreen() {
   const [myMaps, setMyMaps] = useState([]);
+  const [mySpots, setMySpots] = useState([]); // ★追加: 自分のスポット用
   const [loading, setLoading] = useState(true);
+  
   const userId = localStorage.getItem('userId');
   const username = localStorage.getItem('username');
 
   useEffect(() => {
     if (!userId) return;
-    fetch(`http://localhost:3000/api/users/${userId}/pilgrimages`)
-      .then(res => res.json())
-      .then(data => { setMyMaps(data); setLoading(false); })
-      .catch(err => { console.error(err); setLoading(false); });
+
+    // マップの取得
+    const fetchMaps = fetch(`http://localhost:3000/api/users/${userId}/pilgrimages`).then(res => res.json());
+    // スポットの取得 (★追加)
+    const fetchSpots = fetch(`http://localhost:3000/api/users/${userId}/spots`).then(res => res.json());
+
+    Promise.all([fetchMaps, fetchSpots])
+      .then(([mapsData, spotsData]) => {
+        setMyMaps(mapsData);
+        setMySpots(spotsData);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
   }, [userId]);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('本当に削除しますか？この操作は取り消せません。')) return;
+  // マップの削除
+  const handleDeleteMap = async (id) => {
+    if (!window.confirm('本当にマップを削除しますか？\n（含まれるスポットも削除される場合があります）')) return;
     try {
       const res = await fetch(`http://localhost:3000/api/pilgrimages/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setMyMaps(myMaps.filter(map => map.id !== id));
-        alert('削除しました');
-      } else {
-        alert('削除に失敗しました');
+        alert('マップを削除しました');
       }
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
+  // ★追加: スポットの削除
+  const handleDeleteSpot = async (id) => {
+    if (!window.confirm('本当にこのスポットを削除しますか？')) return;
+    try {
+      const res = await fetch(`http://localhost:3000/api/spots/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setMySpots(mySpots.filter(spot => spot.id !== id));
+        alert('スポットを削除しました');
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  if (!userId) return <div style={{padding:'20px'}}>ログインしてください</div>;
+
   return (
-    <div>
-      <h2 style={{ borderBottom: '2px solid #8c7853', paddingBottom: '10px', marginBottom: '20px' }}>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+      <h2 style={{ borderBottom: '2px solid #8c7853', paddingBottom: '10px', marginBottom: '30px' }}>
         {username} さんのマイページ
       </h2>
 
-      <h3 style={{ color: '#4a3a2a' }}>📂 投稿したマップ一覧</h3>
+      {/* --- セクション1: 投稿したスポット --- */}
+      <h3 style={{ color: '#e07a5f', borderLeft: '5px solid #e07a5f', paddingLeft: '10px' }}>
+        📍 投稿したスポット ({mySpots.length})
+      </h3>
+      
+      {loading ? <p>読み込み中...</p> : (
+        mySpots.length === 0 ? <p style={{color:'#666'}}>まだスポットを投稿していません。</p> : (
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            {mySpots.map(spot => (
+              <li key={spot.id} style={{
+                backgroundColor: '#fff', marginBottom: '15px', padding: '15px',
+                borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  {/* サムネイル */}
+                  <div style={{ width: '60px', height: '60px', flexShrink: 0, borderRadius: '4px', overflow: 'hidden', backgroundColor: '#eee' }}>
+                    {spot.image_path ? (
+                      <img src={`http://localhost:3000/${spot.image_path}`} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} />
+                    ) : (
+                      <span style={{display:'block', width:'100%', height:'100%', textAlign:'center', lineHeight:'60px'}}>📷</span>
+                    )}
+                  </div>
+                  
+                  {/* 情報 */}
+                  <div>
+                    <h4 style={{ margin: '0 0 5px 0', fontSize: '1.1rem' }}>{spot.name}</h4>
+                    <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                      in <Link to={`/view/${spot.mapId}`} style={{ color: '#8c7853', fontWeight: 'bold' }}>
+                         {spot.workTitle} - {spot.mapTitle}
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 削除ボタン */}
+                <button 
+                  onClick={() => handleDeleteSpot(spot.id)}
+                  style={{
+                    backgroundColor: '#d9534f', color: '#fff', border: 'none',
+                    padding: '8px 15px', borderRadius: '4px', cursor: 'pointer'
+                  }}
+                >
+                  削除
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+
+      <hr style={{ margin: '40px 0', border: 'none', borderTop: '2px dashed #ccc' }} />
+
+      {/* --- セクション2: 作成したマップ（枠） --- */}
+      <h3 style={{ color: '#8c7853', borderLeft: '5px solid #8c7853', paddingLeft: '10px' }}>
+        📂 作成したマップタイトル ({myMaps.length})
+      </h3>
 
       {loading ? <p>読み込み中...</p> : (
-        myMaps.length === 0 ? <p>まだ投稿がありません。<Link to="/post">ここから作成</Link>しましょう！</p> : (
+        myMaps.length === 0 ? <p style={{color:'#666'}}>作成したタイトルはありません。</p> : (
           <div className="pilgrimage-grid">
             {myMaps.map(map => (
               <div key={map.id} className="map-card" style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
@@ -57,52 +138,15 @@ function MyPageScreen() {
                   </div>
                 </Link>
                 
-                {/* ★変更：ボタンエリアの高さを揃える設定 */}
-                <div style={{ 
-                  padding: '10px', 
-                  display: 'flex', 
-                  gap: '10px', 
-                  borderTop: '1px solid #eee',
-                  marginTop: 'auto' /* カードの下部に寄せる */
-                }}>
-                  {/* 編集ボタン（Linkで囲まれているため、Link自体を広げる） */}
-                  <Link to={`/edit/${map.id}`} style={{ flex: 1, display: 'flex' }}>
-                    <button style={{ 
-                      width: '100%', 
-                      padding: '10px', /* パディングを統一 */
-                      backgroundColor: '#8c7853', 
-                      color: '#fff', 
-                      border: 'none', 
-                      borderRadius: '4px', 
-                      cursor: 'pointer', 
-                      fontSize:'0.9rem', 
-                      minWidth:'auto',
-                      fontWeight: 'bold',
-                      margin: 0 /* 余計なマージンを削除 */
-                    }}>
-                      編集
-                    </button>
-                  </Link>
-                  
-                  {/* 削除ボタン */}
+                <div style={{ padding: '10px', marginTop: 'auto', borderTop: '1px solid #eee' }}>
                   <button 
-                    onClick={() => handleDelete(map.id)} 
+                    onClick={() => handleDeleteMap(map.id)} 
                     style={{ 
-                      flex: 1, 
-                      padding: '10px', /* パディングを統一 */
-                      backgroundColor: '#d9534f', 
-                      color: '#fff', 
-                      border: 'none', 
-                      borderRadius: '4px', 
-                      cursor: 'pointer', 
-                      fontSize:'0.9rem', 
-                      minWidth:'auto', 
-                      fontWeight: 'bold',
-                      marginTop: 0,
-                      margin: 0 /* 余計なマージンを削除 */
+                      width: '100%', padding: '10px', backgroundColor: '#d9534f', 
+                      color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer'
                     }}
                   >
-                    削除
+                    このタイトルを削除
                   </button>
                 </div>
               </div>
@@ -113,5 +157,4 @@ function MyPageScreen() {
     </div>
   );
 }
-
 export default MyPageScreen;
