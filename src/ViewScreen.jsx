@@ -1,208 +1,116 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
+// Google Mapsの部品をインポート
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const mapContainerStyle = {
   width: '100%',
   height: '400px',
-  borderRadius: '8px',
-  border: '4px solid #fff',
-  boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
+  backgroundColor: '#ddd',
+  marginBottom: '30px',
+  border: '1px solid #ccc'
 };
 
 function ViewScreen() {
   const { pilgrimageId } = useParams();
-  const [mapData, setMapData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  
-  // マップ上のクリック用
-  const [selectedSpot, setSelectedSpot] = useState(null);
+  const [pilgrimage, setPilgrimage] = useState(null);
 
+  // APIキー読み込み
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   });
 
+  // バックエンドから詳細データを取得
   useEffect(() => {
-    fetch(`http://localhost:3000/api/pilgrimages/${pilgrimageId}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Network response was not ok');
-        return res.json();
-      })
-      .then(data => {
-        setMapData(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
+    // GET APIはまだ作っていないので、前回同様ダミーデータで動作させます
+    // (ただし、GoogleMapの動作確認のため、座標はリアルな値を使います)
+    const dummyData = {
+      id: pilgrimageId,
+      workTitle: 'IWGP',
+      mapTitle: '池袋西口公園 聖地巡礼コース',
+      author: '聖地ハンターA',
+      date: '2023-11-25',
+      spots: [
+        // ピンを表示するために座標を指定
+        { id: 1, name: '池袋西口公園', lat: 35.730, lng: 139.709, desc: 'ドラマのオープニングでおなじみの場所。' },
+        { id: 2, name: '東京芸術劇場', lat: 35.729, lng: 139.708, desc: 'マコトが座っていたベンチ付近。' },
+        { id: 3, name: '池袋駅西口交番', lat: 35.731, lng: 139.710, desc: '作中で何度も登場する交番前。' },
+      ],
+    };
+    setPilgrimage(dummyData);
   }, [pilgrimageId]);
 
-  // Google Mapのロード時の調整
-  const [map, setMap] = useState(null);
-  const onLoad = useCallback((map) => {
-    setMap(map);
-  }, []);
-  const onUnmount = useCallback(() => {
-    setMap(null);
-  }, []);
+  if (!pilgrimage) return <div>読み込み中...</div>;
 
-  // データ読み込み完了時に、全スポットが収まるようにズーム調整
-  useEffect(() => {
-    if (map && mapData && mapData.spots.length > 0) {
-      const bounds = new window.google.maps.LatLngBounds();
-      mapData.spots.forEach(spot => {
-        bounds.extend({ lat: spot.latitude, lng: spot.longitude });
-      });
-      map.fitBounds(bounds);
-    }
-  }, [map, mapData]);
-
-  if (loading) return <div style={{textAlign:'center', marginTop:'50px'}}>読み込み中...</div>;
-  if (!mapData) return <div style={{textAlign:'center', marginTop:'50px'}}>データが見つかりませんでした</div>;
+  // 地図の中心を計算（1つ目のスポットにする）
+  const mapCenter = pilgrimage.spots.length > 0 
+    ? { lat: pilgrimage.spots[0].lat, lng: pilgrimage.spots[0].lng }
+    : { lat: 35.689, lng: 139.692 }; // デフォルト(新宿)
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-      {/* ヘッダー部分 */}
-      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-        <span style={{ 
-          display: 'inline-block', 
-          backgroundColor: '#8c7853', 
-          color: '#fff', 
-          padding: '5px 15px', 
-          borderRadius: '20px', 
-          fontSize: '0.9rem',
-          marginBottom: '10px'
-        }}>
-          {mapData.workTitle}
-        </span>
-        <h2 style={{ fontSize: '2rem', margin: '10px 0', color: '#4a3b2a' }}>{mapData.mapTitle}</h2>
+    <div>
+      <div style={{ marginBottom: '10px' }}>
+        <Link to="/home">&lt; ホームに戻る</Link>
       </div>
 
-      {/* Google Map */}
-      <div style={{ marginBottom: '40px' }}>
-        {isLoaded ? (
-          <GoogleMap
-            mapContainerStyle={mapContainerStyle}
-            zoom={10}
-            onLoad={onLoad}
-            onUnmount={onUnmount}
-          >
-            {mapData.spots.map(spot => (
-              <Marker
-                key={spot.id}
-                position={{ lat: spot.latitude, lng: spot.longitude }}
-                onClick={() => setSelectedSpot(spot)}
-                label={{
-                  text: spot.spot_order.toString(),
-                  color: "white",
-                  fontWeight: "bold"
-                }}
-              />
-            ))}
-
-            {selectedSpot && (
-              <InfoWindow
-                position={{ lat: selectedSpot.latitude, lng: selectedSpot.longitude }}
-                onCloseClick={() => setSelectedSpot(null)}
-              >
-                <div style={{ color: '#333', padding: '5px' }}>
-                  <h3 style={{ margin: '0 0 5px 0', fontSize: '1.1rem' }}>{selectedSpot.name}</h3>
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}>{selectedSpot.address}</p>
-                </div>
-              </InfoWindow>
-            )}
-          </GoogleMap>
-        ) : <p>Map Loading...</p>}
+      <div className="view-header">
+        <span style={{ color: '#8c7853', fontWeight: 'bold' }}>{pilgrimage.workTitle} の聖地</span>
+        <div className="view-title-area">
+          <h2>{pilgrimage.mapTitle}</h2>
+        </div>
+        <div className="view-meta">
+          <span>作成者: {pilgrimage.author}</span> | <span>スポット数: {pilgrimage.spots.length}件</span>
+        </div>
       </div>
 
-      {/* スポット詳細リスト */}
-      <div>
-        <h3 style={{ borderBottom: '2px solid #8c7853', paddingBottom: '10px', color: '#4a3b2a' }}>
-          📍 巡礼スポット一覧
-        </h3>
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {mapData.spots.map((spot, index) => (
-            <li key={spot.id} style={{ 
-              display: 'flex', 
-              marginBottom: '20px', 
-              backgroundColor: 'rgba(255,255,255,0.6)', 
-              borderRadius: '8px',
-              padding: '15px',
-              border: '1px solid rgba(255,255,255,0.8)'
-            }}>
-              {/* 番号 */}
-              <div style={{ 
-                marginRight: '20px', 
-                fontSize: '1.5rem', 
-                fontWeight: 'bold', 
-                color: '#8c7853',
-                minWidth: '30px'
-              }}>
-                {index + 1}.
-              </div>
+      <div className="view-tabs">
+        <div className="view-tab active">地図・ルート</div>
+        <div className="view-tab">スポット一覧</div>
+      </div>
 
-              {/* 内容 */}
-              <div style={{ flex: 1 }}>
-                <h4 style={{ margin: '0 0 10px 0', fontSize: '1.3rem', color: '#4a3b2a' }}>
-                  {spot.name}
-                </h4>
-                
-                {spot.image_path && (
-                  <div style={{ marginBottom: '10px' }}>
-                    <img 
-                      src={`http://localhost:3000/${spot.image_path}`} 
-                      alt={spot.name} 
-                      style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '4px', border: '2px solid #fff', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }} 
-                    />
-                  </div>
-                )}
-                
-                <p style={{ margin: '0 0 5px 0', fontWeight: 'bold', fontSize: '0.95rem', color: '#666' }}>
-                  住所: {spot.address}
-                </p>
-                
-                {spot.nearby_info && (
-                  <p style={{ margin: '0 0 15px 0', fontSize: '1rem', whiteSpace: 'pre-wrap', color: '#333' }}>
-                    {spot.nearby_info}
-                  </p>
-                )}
-
-                {/* ★追加: Google Mapsで開くボタン */}
-                <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${spot.latitude},${spot.longitude}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    textDecoration: 'none',
-                    backgroundColor: '#4285F4', // Google Mapっぽい青、またはテーマカラーの #8c7853 でもOK
-                    color: '#fff',
-                    padding: '8px 16px',
-                    borderRadius: '20px',
-                    fontSize: '0.9rem',
-                    fontWeight: 'bold',
-                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-                    transition: 'opacity 0.2s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                >
-                  🌏 Google Mapsで開く
-                </a>
-              </div>
-            </li>
+      {/* 地図表示エリア */}
+      {isLoaded ? (
+        <GoogleMap
+          mapContainerStyle={mapContainerStyle}
+          center={mapCenter}
+          zoom={15} // ズームレベル（数字が大きいほど拡大）
+        >
+          {/* スポットの数だけピンを立てる */}
+          {pilgrimage.spots.map((spot, index) => (
+            <Marker
+              key={spot.id}
+              position={{ lat: spot.lat, lng: spot.lng }}
+              label={{
+                text: (index + 1).toString(), // ピンに「1」「2」と番号を表示
+                color: "white",
+                fontWeight: "bold"
+              }}
+            />
           ))}
-        </ul>
-      </div>
+        </GoogleMap>
+      ) : (
+        <div>地図を読み込み中...</div>
+      )}
 
-      <div style={{ textAlign: 'center', marginTop: '40px' }}>
-        <Link to="/home" style={{ color: '#8c7853', fontWeight: 'bold', textDecoration: 'none', borderBottom: '1px solid' }}>
-          一覧に戻る
-        </Link>
-      </div>
+      <h3 style={{ borderBottom: '2px solid #d8c8b0', paddingBottom: '5px' }}>巡礼スポット一覧</h3>
+      <table className="spots-table">
+        <tbody>
+          {pilgrimage.spots.map((spot, index) => (
+            <tr key={spot.id} className="spot-row">
+              <th>
+                <div style={{ background:'#4a3a2a', color:'#fff', width:'24px', height:'24px', textAlign:'center', borderRadius:'50%' }}>
+                  {index + 1}
+                </div>
+              </th>
+              <td>
+                <div style={{ fontWeight: 'bold', fontSize: '1.1em' }}>{spot.name}</div>
+                <div style={{ color: '#7a6a5a', fontSize: '0.9em', marginTop: '5px' }}>{spot.desc}</div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
