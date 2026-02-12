@@ -22,8 +22,8 @@ function HomeScreen() {
     <div>
       {/* タイトル部分を統合 */}
       <div style={{ textAlign: 'center', marginBottom: '40px', padding: '20px 0', borderBottom: '2px dashed #c9b8a0' }}>
-        <h1 style={{ fontSize: '2.5em', color: '#4a3a2a', margin: '0' }}>追憶の地図</h1>
-        <h2 style={{ fontSize: '1.2em', color: '#8c7853', marginTop: '5px' }}>- Memoir Map -</h2>
+        <h1 style={{ fontSize: '2.5em', color: '#4a3a2a', margin: '0' }}>あの景色</h1>
+        <h2 style={{ fontSize: '1.2em', color: '#8c7853', marginTop: '5px' }}>聖地巡礼MAP</h2>
         <p style={{ color: '#7a6a5a' }}>物語の舞台を、あなたの足跡で記録しよう。</p>
       </div>
 
