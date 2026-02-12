@@ -204,3 +204,4 @@ app.put('/api/pilgrimages/:id', upload.any(), (req, res) => {
 
 // ... (既存の app.listen ...)
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+//kkkkkk
