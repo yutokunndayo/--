@@ -30,11 +30,22 @@ db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL)`);
   db.run(`CREATE TABLE IF NOT EXISTS works (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL UNIQUE)`);
   db.run(`CREATE TABLE IF NOT EXISTS pilgrimages (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, user_id INTEGER, work_id INTEGER, image_path TEXT, FOREIGN KEY (user_id) REFERENCES users (id), FOREIGN KEY (work_id) REFERENCES works (id))`);
-  // ★user_id カラムを含んだ spots テーブル定義
   db.run(`CREATE TABLE IF NOT EXISTS spots (id INTEGER PRIMARY KEY AUTOINCREMENT, pilgrimage_id INTEGER NOT NULL, user_id INTEGER, name TEXT NOT NULL, latitude REAL NOT NULL, longitude REAL NOT NULL, spot_order INTEGER, nearby_info TEXT, image_path TEXT, address TEXT, FOREIGN KEY (pilgrimage_id) REFERENCES pilgrimages (id), FOREIGN KEY (user_id) REFERENCES users (id))`);
+  
+  // ★追加: コメント（交流ノート）用テーブル
+  db.run(`CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+    spot_id INTEGER NOT NULL, 
+    user_id INTEGER, 
+    content TEXT NOT NULL, 
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (spot_id) REFERENCES spots (id), 
+    FOREIGN KEY (user_id) REFERENCES users (id)
+  )`);
 });
 
-// マップ削除API
+// --- 既存のAPI ---
+
 app.delete('/api/pilgrimages/:id', (req, res) => {
   const mapId = req.params.id;
   db.run('DELETE FROM pilgrimages WHERE id = ?', [mapId], function(err) {
@@ -43,7 +54,6 @@ app.delete('/api/pilgrimages/:id', (req, res) => {
   });
 });
 
-// ★スポット削除API
 app.delete('/api/spots/:id', (req, res) => {
   const spotId = req.params.id;
   db.run('DELETE FROM spots WHERE id = ?', [spotId], function(err) {
@@ -80,7 +90,6 @@ app.get('/api/pilgrimages', (req, res) => {
   db.all(sql, [], (err, rows) => { if (err) return res.status(500).json({ error: 'DBエラー' }); res.json(rows); });
 });
 
-// 詳細取得（スポットの投稿者名も取得）
 app.get('/api/pilgrimages/:id', (req, res) => {
   const mapId = req.params.id;
   const sql = `
@@ -89,11 +98,8 @@ app.get('/api/pilgrimages/:id', (req, res) => {
     JOIN works w ON p.work_id = w.id 
     LEFT JOIN users u ON p.user_id = u.id 
     WHERE p.id = ?`;
-    
   db.get(sql, [mapId], (err, map) => {
     if (err || !map) return res.status(404).json({ error: 'マップが見つかりません' });
-    
-    // スポットとユーザー情報を結合して取得
     const spotsSql = `
       SELECT s.*, u.username 
       FROM spots s 
@@ -101,7 +107,6 @@ app.get('/api/pilgrimages/:id', (req, res) => {
       WHERE s.pilgrimage_id = ? 
       ORDER BY s.spot_order ASC
     `;
-    
     db.all(spotsSql, [mapId], (err, spots) => {
       if (err) return res.status(500).json({ error: 'DBエラー' });
       res.json({ ...map, spots });
@@ -109,7 +114,6 @@ app.get('/api/pilgrimages/:id', (req, res) => {
   });
 });
 
-// マップ新規作成（枠のみ）
 app.post('/api/pilgrimages', upload.any(), (req, res) => {
   let spots = [];
   try { spots = JSON.parse(req.body.spots || '[]'); } catch (e) {}
@@ -122,15 +126,12 @@ app.post('/api/pilgrimages', upload.any(), (req, res) => {
       if (row) insertPilgrimage(row.id);
       else db.run('INSERT INTO works (title) VALUES (?)', [workTitle], function(err) { insertPilgrimage(this.lastID); });
     });
-
     function insertPilgrimage(workId) {
       db.run('INSERT INTO pilgrimages (title, work_id, user_id, image_path) VALUES (?, ?, ?, ?)', [mapTitle, workId, userId || null, coverImagePath], function(err) {
         insertSpots(this.lastID);
       });
     }
-
     function insertSpots(pilgrimageId) {
-      // 初期作成時はスポットは空のことが多いが念のため
       const stmt = db.prepare('INSERT INTO spots (pilgrimage_id, user_id, name, latitude, longitude, spot_order, nearby_info, image_path, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
       spots.forEach((spot, index) => {
         const spotFile = req.files.find(f => f.fieldname === `spotImage_${index}`);
@@ -142,7 +143,6 @@ app.post('/api/pilgrimages', upload.any(), (req, res) => {
   });
 });
 
-// ユーザーの作成したマップ一覧
 app.get('/api/users/:id/pilgrimages', (req, res) => {
   const userId = req.params.id;
   const sql = `SELECT p.id, p.title, p.image_path, w.title AS work FROM pilgrimages p JOIN works w ON p.work_id = w.id WHERE p.user_id = ? ORDER BY p.id DESC`;
@@ -152,7 +152,6 @@ app.get('/api/users/:id/pilgrimages', (req, res) => {
   });
 });
 
-// ★ユーザーの投稿したスポット一覧 (マイページ用)
 app.get('/api/users/:id/spots', (req, res) => {
   const userId = req.params.id;
   const sql = `
@@ -169,13 +168,11 @@ app.get('/api/users/:id/spots', (req, res) => {
   });
 });
 
-// マップ更新API
 app.put('/api/pilgrimages/:id', upload.any(), (req, res) => {
   const mapId = req.params.id;
   const { workTitle, mapTitle } = req.body;
   const coverFile = req.files.find(f => f.fieldname === 'coverImage');
   const coverImagePath = coverFile ? coverFile.path.replace(/\\/g, '/') : undefined;
-
   db.serialize(() => {
     db.get('SELECT id FROM works WHERE title = ?', [workTitle], function(err, row) {
       if (row) updatePilgrimage(row.id);
@@ -195,19 +192,15 @@ app.put('/api/pilgrimages/:id', upload.any(), (req, res) => {
   });
 });
 
-// ★ViewScreenから呼び出す「スポット1件追加」API
 app.post('/api/pilgrimages/:id/spots', upload.single('spotImage'), (req, res) => {
   const pilgrimageId = req.params.id;
-  const { name, address, nearbyInfo, lat, lng, userId } = req.body; // userIdを受け取る
-  
+  const { name, address, nearbyInfo, lat, lng, userId } = req.body;
   const spotFile = req.file;
   const spotImagePath = spotFile ? spotFile.path.replace(/\\/g, '/') : null;
-
   db.serialize(() => {
     db.get('SELECT MAX(spot_order) as maxOrder FROM spots WHERE pilgrimage_id = ?', [pilgrimageId], (err, row) => {
       if (err) return res.status(500).json({ error: 'DBエラー' });
       const nextOrder = (row && row.maxOrder) ? row.maxOrder + 1 : 1;
-      
       const stmt = db.prepare('INSERT INTO spots (pilgrimage_id, user_id, name, latitude, longitude, spot_order, nearby_info, image_path, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
       stmt.run(pilgrimageId, userId || null, name, lat, lng, nextOrder, nearbyInfo || '', spotImagePath, address || '', function(err) {
         if (err) return res.status(500).json({ error: err.message });
@@ -215,6 +208,48 @@ app.post('/api/pilgrimages/:id/spots', upload.single('spotImage'), (req, res) =>
       });
       stmt.finalize();
     });
+  });
+});
+
+// --- ★ここから交流ノート（コメント）用の新API ---
+
+// コメント一覧取得
+app.get('/api/spots/:id/comments', (req, res) => {
+  const spotId = req.params.id;
+  const sql = `
+    SELECT c.id, c.content, c.created_at, u.username
+    FROM comments c
+    LEFT JOIN users u ON c.user_id = u.id
+    WHERE c.spot_id = ?
+    ORDER BY c.created_at DESC
+  `;
+  db.all(sql, [spotId], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'DBエラー' });
+    res.json(rows);
+  });
+});
+
+// コメント投稿
+app.post('/api/spots/:id/comments', (req, res) => {
+  const spotId = req.params.id;
+  const { userId, content } = req.body;
+  if (!content) return res.status(400).json({ error: '内容がありません' });
+
+  db.run('INSERT INTO comments (spot_id, user_id, content) VALUES (?, ?, ?)', 
+    [spotId, userId || null, content], 
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ message: 'コメント投稿成功', id: this.lastID });
+    }
+  );
+});
+
+// コメント削除
+app.delete('/api/comments/:id', (req, res) => {
+  const commentId = req.params.id;
+  db.run('DELETE FROM comments WHERE id = ?', [commentId], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: '削除成功' });
   });
 });
 
