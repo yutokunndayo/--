@@ -26,7 +26,7 @@ function ViewScreen() {
   // マップ操作・表示用
   const [selectedSpot, setSelectedSpot] = useState(null);
   const [map, setMap] = useState(null);
-
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
   // 新規スポット投稿用
   const [isAddingMode, setIsAddingMode] = useState(false);
   const [newSpot, setNewSpot] = useState({
@@ -57,7 +57,7 @@ function ViewScreen() {
 
   // --- データ取得 ---
   const fetchMapData = useCallback(() => {
-    fetch(`http://localhost:3000/api/pilgrimages/${pilgrimageId}`)
+  fetch(`${API_URL}/api/pilgrimages/${pilgrimageId}`)
       .then(res => {
         if (!res.ok) throw new Error('Network response was not ok');
         return res.json();
@@ -405,9 +405,17 @@ function ViewScreen() {
                      </span>
                   </div>
                   
-                  {spot.image_path && (
-                    <img src={`http://localhost:3000/${spot.image_path}`} alt={spot.name} style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '4px', marginBottom:'10px', border: '2px solid #fff', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }} />
-                  )}
+                 {spot.image_path && (
+                  <div style={{ marginBottom: '10px' }}>
+                    {/* ❌ 修正前: <img src={`http://localhost:3000/${spot.image_path}`} alt={spot.name} ... /> */}
+                    {/* ⭕️ 修正後: */}
+                    <img 
+                      src={`${API_URL}/${spot.image_path}`} 
+                      alt={spot.name} 
+                      style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '4px', border: '2px solid #fff', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }} 
+                    />
+                  </div>
+                )}
                   
                   <p style={{ margin: '0 0 5px 0', fontWeight: 'bold', fontSize: '0.95rem', color: '#666' }}>住所: {spot.address}</p>
                   {spot.nearby_info && <p style={{ margin: '0 0 15px 0', fontSize: '1rem', whiteSpace: 'pre-wrap', color: '#333' }}>{spot.nearby_info}</p>}

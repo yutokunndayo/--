@@ -7,7 +7,9 @@ function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/pilgrimages')
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+fetch(`${API_URL}/api/pilgrimages`)
       .then(res => res.json())
       .then(data => { setPilgrimages(data); setIsLoading(false); })
       .catch(err => { console.error(err); setIsLoading(false); });
@@ -41,7 +43,7 @@ function HomeScreen() {
             <Link to={`/view/${map.id}`} key={map.id} className="map-card">
               <div className="card-image">
                 {map.image_path ? (
-                  <img src={`http://localhost:3000/${map.image_path}`} alt="cover" />
+                  <img src={`${API_URL}/${map.image_path}`} alt="cover" />
                 ) : (
                   <img src={`https://picsum.photos/seed/${map.id}/400/250`} alt="dummy" />
                 )}

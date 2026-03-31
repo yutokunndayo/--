@@ -8,7 +8,9 @@ const mapContainerStyle = {
 
 function EditScreen() {
   const { pilgrimageId } = useParams(); // URLからIDを取得
+
   const navigate = useNavigate();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
@@ -36,8 +38,9 @@ function EditScreen() {
 
   // 既存データの読み込み
   useEffect(() => {
-    fetch(`http://localhost:3000/api/pilgrimages/${pilgrimageId}`)
+   fetch(`${API_URL}/api/pilgrimages/${pilgrimageId}`)
       .then(res => {
+  
         if (!res.ok) throw new Error('データ取得失敗');
         return res.json();
       })
@@ -143,7 +146,7 @@ function EditScreen() {
 
     try {
       // PUTメソッドで送信
-      const response = await fetch(`http://localhost:3000/api/pilgrimages/${pilgrimageId}`, { 
+    const response = await fetch(`${API_URL}/api/pilgrimages/${pilgrimageId}`, { 
         method: 'PUT', 
         body: formData 
       });
@@ -176,7 +179,7 @@ function EditScreen() {
           <label>カバー画像:</label>
           {existingCoverUrl && !coverImage && (
             <div style={{ marginBottom: '10px' }}>
-              <img src={`http://localhost:3000/${existingCoverUrl}`} alt="current" style={{ height: '100px', borderRadius: '4px' }} />
+              <img src={`${API_URL}/${existingCoverUrl}`} alt="current" style={{ height: '100px', borderRadius: '4px' }} />
               <p style={{ fontSize: '0.8em', color: '#666' }}>※変更しない場合はそのまま</p>
             </div>
           )}

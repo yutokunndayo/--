@@ -11,7 +11,8 @@ function LoginScreen() {
     e.preventDefault();
     const endpoint = isRegister ? '/register' : '/login';
     try {
-      const response = await fetch(`http://localhost:3000${endpoint}`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const response = await fetch(`http://localhost:3000${endpoint}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }),
       });
       if (response.ok) {
