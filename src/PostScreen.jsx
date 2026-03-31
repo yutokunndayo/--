@@ -3,124 +3,80 @@ import { useNavigate } from 'react-router-dom';
 
 function PostScreen() {
   const navigate = useNavigate();
-
-  // 入力フォームの状態（スポット情報は削除）
   const [workTitle, setWorkTitle] = useState('');
   const [mapTitle, setMapTitle] = useState('');
-  const [coverImage, setCoverImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null); // 画像ファイル
+  const [spots, setSpots] = useState([]);
   
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [spotName, setSpotName] = useState('');
+  const [spotLat, setSpotLat] = useState('');
+  const [spotLng, setSpotLng] = useState('');
 
-  // 保存ボタン
+  const handleAddSpot = () => {
+    if (!spotName || !spotLat || !spotLng) return;
+    const newSpot = { id: spots.length + 1, name: spotName, lat: parseFloat(spotLat), lng: parseFloat(spotLng) };
+    setSpots([...spots, newSpot]);
+    setSpotName(''); setSpotLat(''); setSpotLng('');
+  };
+
   const handleSubmitMap = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-
+    
+    // ★FormDataでデータをまとめる
     const formData = new FormData();
     formData.append('workTitle', workTitle);
     formData.append('mapTitle', mapTitle);
-    if (coverImage) formData.append('coverImage', coverImage);
-
-    const userId = localStorage.getItem('userId');
-    if (userId) formData.append('userId', userId);
-
-    // スポットは空の配列として送信（バックエンドのエラーを防ぐため）
-    formData.append('spots', JSON.stringify([]));
+    formData.append('spots', JSON.stringify(spots)); // 配列は文字列化
+    if (imageFile) {
+      formData.append('image', imageFile);
+    }
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-const response = await fetch(`${API_URL}/api/pilgrimages`, { method: 'POST', body: formData });
+      // headersを指定しない（ブラウザが自動設定）
+      const response = await fetch('http://localhost:3000/api/pilgrimages', {
+        method: 'POST',
+        body: formData,
+      });
       if (!response.ok) throw new Error(`サーバーエラー: ${response.status}`);
       
-      const data = await response.json();
-      alert('タイトルを作成しました！次はスポットを登録しましょう。');
-      
-      // 作成完了後、そのマップの詳細画面へ移動して、すぐにスポット追加できるようにする
-      if (data.pilgrimageId) {
-        navigate(`/view/${data.pilgrimageId}`);
-      } else {
-        navigate('/home');
-      }
-
-    } catch (err) { 
-      console.error(err);
-      alert(`保存失敗: ${err.message}`); 
-    } finally {
-      setIsSubmitting(false);
+      alert('保存しました！');
+      navigate('/home');
+    } catch (err) {
+      alert(`保存失敗: ${err.message}`);
     }
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
-      <h2 style={{ textAlign: 'center', color: '#4a3a2a' }}>新しいタイトル（枠）を作成</h2>
-      <p style={{ textAlign: 'center', marginBottom: '30px', color: '#666' }}>
-        みんなで作り上げる聖地巡礼マップの<br />
-        新しい「タイトル」を作成します。
-      </p>
-
-      <form onSubmit={handleSubmitMap} style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '10px', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
+    <div>
+      <h2>聖地巡礼マップを作成する</h2>
+      <form onSubmit={handleSubmitMap}>
         <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#4a3a2a' }}>
-            作品名 <span style={{ color: '#e07a5f', fontSize: '0.8em' }}>(必須)</span>
-          </label>
-          <input 
-            type="text" 
-            value={workTitle} 
-            onChange={(e) => setWorkTitle(e.target.value)} 
-            required 
-            placeholder="例: 君の名は。" 
-            style={{ width: '100%', padding: '12px', fontSize: '1em', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
-          />
+          <label>作品名:</label>
+          <input type="text" value={workTitle} onChange={(e) => setWorkTitle(e.target.value)} required placeholder="例: 作品A" />
         </div>
-
         <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#4a3a2a' }}>
-            マップのタイトル <span style={{ color: '#e07a5f', fontSize: '0.8em' }}>(必須)</span>
-          </label>
-          <input 
-            type="text" 
-            value={mapTitle} 
-            onChange={(e) => setMapTitle(e.target.value)} 
-            required 
-            placeholder="例: 飛騨古川 聖地巡礼マップ" 
-            style={{ width: '100%', padding: '12px', fontSize: '1em', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
-          />
+          <label>マップのタイトル:</label>
+          <input type="text" value={mapTitle} onChange={(e) => setMapTitle(e.target.value)} required placeholder="例: 東京聖地巡礼" />
         </div>
-
-        <div style={{ marginBottom: '2rem' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#4a3a2a' }}>
-            カバー画像 <span style={{ color: '#999', fontSize: '0.8em' }}>(任意)</span>
-          </label>
-          <input 
-            type="file" 
-            accept="image/*" 
-            onChange={(e) => setCoverImage(e.target.files[0])} 
-            style={{ width: '100%', padding: '5px' }} 
-          />
-          <p style={{ fontSize: '0.85em', color: '#888', marginTop: '5px' }}>
-            ※一覧画面やヘッダーに表示されます。
-          </p>
+        {/* 画像選択欄 */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label>カバー画像:</label>
+          <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} style={{ border: 'none' }} />
         </div>
-
-        <button 
-          type="submit" 
-          disabled={isSubmitting} 
-          style={{ 
-            padding: '15px', 
-            fontSize: '1.1em',
-            width: '100%',
-            backgroundColor: isSubmitting ? '#ccc' : '#8c7853', 
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: isSubmitting ? 'wait' : 'pointer',
-            fontWeight: 'bold',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-          }}
-        >
-          {isSubmitting ? '作成中...' : 'このタイトルを作成する'}
-        </button>
+        <hr />
+        <h3>聖地スポットを追加</h3>
+        <div style={{ marginBottom: '1rem' }}>
+          <input type="text" value={spotName} onChange={(e) => setSpotName(e.target.value)} placeholder="場所名" />
+        </div>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '1rem' }}>
+          <input type="number" value={spotLat} onChange={(e) => setSpotLat(e.target.value)} placeholder="緯度" />
+          <input type="number" value={spotLng} onChange={(e) => setSpotLng(e.target.value)} placeholder="経度" />
+        </div>
+        <button type="button" onClick={handleAddSpot}>このスポットを追加</button>
+        <h4>追加済み: {spots.length}件</h4>
+        <ul>{spots.map(s => <li key={s.id}>{s.name}</li>)}</ul>
+        <hr />
+        <button type="submit" disabled={spots.length === 0}>保存する</button>
       </form>
     </div>
   );

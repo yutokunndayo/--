@@ -22,5 +22,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-# 追加する内容
-.env

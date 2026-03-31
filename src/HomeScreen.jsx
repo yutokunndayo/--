@@ -7,9 +7,7 @@ function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-
-fetch(`${API_URL}/api/pilgrimages`)
+    fetch('http://localhost:3000/api/pilgrimages')
       .then(res => res.json())
       .then(data => { setPilgrimages(data); setIsLoading(false); })
       .catch(err => { console.error(err); setIsLoading(false); });
@@ -24,8 +22,8 @@ fetch(`${API_URL}/api/pilgrimages`)
     <div>
       {/* タイトル部分を統合 */}
       <div style={{ textAlign: 'center', marginBottom: '40px', padding: '20px 0', borderBottom: '2px dashed #c9b8a0' }}>
-        <h1 style={{ fontSize: '2.5em', color: '#4a3a2a', margin: '0' }}>あの景色</h1>
-        <h2 style={{ fontSize: '1.2em', color: '#8c7853', marginTop: '5px' }}>聖地巡礼MAP</h2>
+        <h1 style={{ fontSize: '2.5em', color: '#4a3a2a', margin: '0' }}>追憶の地図</h1>
+        <h2 style={{ fontSize: '1.2em', color: '#8c7853', marginTop: '5px' }}>- Memoir Map -</h2>
         <p style={{ color: '#7a6a5a' }}>物語の舞台を、あなたの足跡で記録しよう。</p>
       </div>
 
@@ -43,7 +41,7 @@ fetch(`${API_URL}/api/pilgrimages`)
             <Link to={`/view/${map.id}`} key={map.id} className="map-card">
               <div className="card-image">
                 {map.image_path ? (
-                  <img src={`${API_URL}/${map.image_path}`} alt="cover" />
+                  <img src={`http://localhost:3000/${map.image_path}`} alt="cover" />
                 ) : (
                   <img src={`https://picsum.photos/seed/${map.id}/400/250`} alt="dummy" />
                 )}
